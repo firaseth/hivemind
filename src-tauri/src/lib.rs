@@ -1,0 +1,112 @@
+mod memory;
+
+use std::process::{Child, Command};
+use std::sync::Mutex;
+use rusqlite::Connection;
+use memory::MemoryEntry;
+
+// Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+#[tauri::command]
+fn greet(name: &str) -> String {
+    format!("Hello, {}! You've been greeted from Rust!", name)
+}
+
+#[tauri::command]
+fn start_ollama(state: tauri::State<'_, AppState>, port: Option<u16>) -> Result<String, String> {
+    let mut process_lock = state.ollama_process.lock().map_err(|err| err.to_string())?;
+    if process_lock.is_some() {
+        return Ok("Ollama service already running".into());
+    }
+
+    let port = port.unwrap_or(11434);
+    let child = Command::new("ollama")
+        .arg("serve")
+        .arg("--port")
+        .arg(port.to_string())
+        .arg("--host")
+        .arg("127.0.0.1")
+        .spawn()
+        .map_err(|err| format!("Failed to start Ollama: {}", err))?;
+
+    *process_lock = Some(child);
+    Ok(format!("Ollama started on http://127.0.0.1:{}", port))
+}
+
+#[tauri::command]
+fn stop_ollama(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    let mut process_lock = state.ollama_process.lock().map_err(|err| err.to_string())?;
+    if let Some(mut child) = process_lock.take() {
+        child.kill().map_err(|err| format!("Failed to stop Ollama: {}", err))?;
+        child.wait().map_err(|err| format!("Failed to wait for Ollama shutdown: {}", err))?;
+        return Ok("Ollama stopped".into());
+    }
+    Ok("Ollama was not running".into())
+}
+
+#[tauri::command]
+fn ollama_status(state: tauri::State<'_, AppState>) -> Result<String, String> {
+    let process_lock = state.ollama_process.lock().map_err(|err| err.to_string())?;
+    Ok(if process_lock.is_some() {
+        "running".into()
+    } else {
+        "stopped".into()
+    })
+}
+
+#[tauri::command]
+fn save_memory_entry(state: tauri::State<'_, AppState>, entry: MemoryEntry) -> Result<String, String> {
+    let conn = state.db.lock().map_err(|err| err.to_string())?;
+    memory::save_memory_entry(&conn, entry).map_err(|err| err.to_string())?;
+    Ok("Memory entry saved".into())
+}
+
+#[tauri::command]
+fn query_memory_entries(state: tauri::State<'_, AppState>, query: String, limit: Option<usize>) -> Result<Vec<MemoryEntry>, String> {
+    let conn = state.db.lock().map_err(|err| err.to_string())?;
+    let results = memory::query_memory_entries(&conn, &query, limit.unwrap_or(20)).map_err(|err| err.to_string())?;
+    Ok(results)
+}
+
+#[tauri::command]
+fn list_memory_entries(state: tauri::State<'_, AppState>) -> Result<Vec<MemoryEntry>, String> {
+    let conn = state.db.lock().map_err(|err| err.to_string())?;
+    let results = memory::list_memory_entries(&conn).map_err(|err| err.to_string())?;
+    Ok(results)
+}
+
+#[tauri::command]
+fn orchestrate_agent_graph(goal: &str) -> Result<String, String> {
+    Ok(format!("Orchestrated agent graph for goal: {}", goal))
+}
+
+struct AppState {
+    ollama_process: Mutex<Option<Child>>,
+    db: Mutex<Connection>,
+}
+
+#[cfg_attr(mobile, tauri::mobile_entry_point)]
+pub fn run() {
+    let db = memory::open_memory_db("hivemind_memory.db").expect("Failed to open SQLite memory store");
+    memory::init_memory_db(&db).expect("Failed to initialize memory database");
+
+    tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .manage(AppState {
+            ollama_process: Mutex::new(None),
+            db: Mutex::new(db),
+        })
+        .invoke_handler(
+            tauri::generate_handler![
+                greet,
+                start_ollama,
+                stop_ollama,
+                ollama_status,
+                save_memory_entry,
+                query_memory_entries,
+                list_memory_entries,
+                orchestrate_agent_graph,
+            ],
+        )
+        .run(tauri::generate_context!())
+        .expect("error while running tauri application");
+}
