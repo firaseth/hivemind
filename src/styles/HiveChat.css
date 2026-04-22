@@ -69,11 +69,38 @@
 
 .hivechat-header-right {
   display: flex;
-  gap: 8px;
+  align-items: center;
+  gap: 12px;
+}
+
+.view-toggle {
+  display: flex;
+  background: var(--color-background-tertiary);
+  padding: 3px;
+  border-radius: 8px;
+  border: 0.5px solid var(--color-border-tertiary);
+}
+
+.toggle-btn {
+  padding: 5px 12px;
+  border: none;
+  background: transparent;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  border-radius: 6px;
+  transition: all 0.2s ease;
+}
+
+.toggle-btn.active {
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  box-shadow: 0 1px 3px rgba(0,0,0,0.1);
 }
 
 .replay-btn {
-  font-size: 13px;
+  font-size: 11px;
   padding: 6px 12px;
   border: 0.5px solid var(--color-border-secondary);
   border-radius: 6px;
@@ -91,6 +118,19 @@
 /* ============================================================================
    DECISION REPLAY PANEL
    ============================================================================ */
+
+.swarm-graph-overlay {
+  height: 400px;
+  padding: 14px;
+  background: var(--color-background-secondary);
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  animation: slide-down 0.3s ease-out;
+}
+
+@keyframes slide-down {
+  from { height: 0; opacity: 0; }
+  to { height: 400px; opacity: 1; }
+}
 
 .decision-replay-panel {
   padding: 12px 18px;

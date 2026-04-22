@@ -1,5 +1,6 @@
 import { createAgentChain, runConsensusVote, brainRouter, logDecision, AGENT_PERSONAS } from "./chains";
 import type { AgentMessage, MemoryEntry } from "../types/agent";
+import { emit } from "@tauri-apps/api/event";
 
 // ============================================================================
 // SWARM ORCHESTRATOR - Manages parallel agent execution and consensus
@@ -37,19 +38,32 @@ export const executeSwarm = async (
   const messages: AgentMessage[] = [];
   const decisionLog: any[] = [];
 
-  console.log(`[HiveMind] Starting swarm session: \${sessionId}`);
-  console.log(`[HiveMind] Goal: \${config.goal}`);
+  console.log(`[HiveMind] Starting swarm session: ${sessionId}`);
+  console.log(`[HiveMind] Goal: ${config.goal}`);
 
   // Step 1: Router decides which model to use
   const routerDecision = await brainRouter(config.goal, "high");
-  console.log(`[HiveMind] Brain Router: \${routerDecision.selectedModel} (confidence: \${routerDecision.confidence}%)`);
+  console.log(`[HiveMind] Brain Router: ${routerDecision.selectedModel} (confidence: ${routerDecision.confidence}%)`);
+
+  const updateStatus = async (role: string, status: string) => {
+    await emit("agent_status", { role, status, sessionId });
+  };
 
   // Step 2: Run all agents in parallel
-  const plannerPromise = runAgentChain("planner", config.goal, config.memoryContext);
-  const researcherPromise = runAgentChain("researcher", config.goal, config.memoryContext);
-  const creatorPromise = runAgentChain("creator", config.goal, config.memoryContext);
-  const executorPromise = runAgentChain("executor", config.goal, config.memoryContext);
-  const memoryPromise = runAgentChain("memory", config.goal, config.memoryContext);
+  await updateStatus("planner", "working");
+  const plannerPromise = runAgentChain("planner", config.goal, config.memoryContext, sessionId);
+  
+  await updateStatus("researcher", "working");
+  const researcherPromise = runAgentChain("researcher", config.goal, config.memoryContext, sessionId);
+  
+  await updateStatus("creator", "working");
+  const creatorPromise = runAgentChain("creator", config.goal, config.memoryContext, sessionId);
+  
+  await updateStatus("executor", "working");
+  const executorPromise = runAgentChain("executor", config.goal, config.memoryContext, sessionId);
+  
+  await updateStatus("memory", "working");
+  const memoryPromise = runAgentChain("memory", config.goal, config.memoryContext, sessionId);
 
   const [plannerResult, researcherResult, creatorResult, executorResult, memoryResult] = 
     await Promise.all([
@@ -59,6 +73,12 @@ export const executeSwarm = async (
       executorPromise,
       memoryPromise,
     ]);
+
+  await updateStatus("planner", "idle");
+  await updateStatus("researcher", "idle");
+  await updateStatus("creator", "idle");
+  await updateStatus("executor", "idle");
+  await updateStatus("memory", "idle");
 
   // Add all agent messages
   messages.push(...plannerResult.messages);
@@ -151,7 +171,8 @@ interface AgentChainResult {
 export const runAgentChain = async (
   agentRole: "planner" | "researcher" | "executor" | "creator" | "memory",
   goal: string,
-  memoryContext?: MemoryEntry[]
+  memoryContext?: MemoryEntry[],
+  sessionId?: string
 ): Promise<AgentChainResult> => {
   const chain = createAgentChain(agentRole);
   const persona = AGENT_PERSONAS[agentRole];
@@ -167,13 +188,18 @@ export const runAgentChain = async (
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
 
     const message: AgentMessage = {
-      id: `msg-\${Date.now()}-\${agentRole}`,
+      id: `msg-${Date.now()}-${agentRole}`,
       agentRole: agentRole as any,
       content: output,
       timestamp: Date.now(),
       type: "thought",
       confidence,
     };
+
+    // Emit real-time message event via Tauri
+    if (sessionId) {
+      await emit("agent_message", message);
+    }
 
     return {
       output,

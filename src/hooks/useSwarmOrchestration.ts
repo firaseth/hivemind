@@ -15,6 +15,7 @@ export const useSwarmOrchestration = (options?: UseSwarmOrchestrationOptions) =>
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [consensusReached, setConsensusReached] = useState(false);
+  const [activeAgent, setActiveAgent] = useState<string | undefined>();
   const [error, setError] = useState<string | null>(null);
   const [sessionHistory, setSessionHistory] = useState<SwarmSession[]>([]);
 
@@ -57,7 +58,24 @@ export const useSwarmOrchestration = (options?: UseSwarmOrchestrationOptions) =>
         // Listen for agent message event
         unlisteners.push(
           await listen<AgentMessage>('agent_message', (event) => {
-            setMessages(prev => [...prev, event.payload]);
+            console.log('[HiveChat] Agent message:', event.payload);
+            setMessages(prev => {
+              // Avoid duplicates
+              if (prev.some(m => m.id === event.payload.id)) return prev;
+              return [...prev, event.payload];
+            });
+          })
+        );
+
+        // Listen for agent status event
+        unlisteners.push(
+          await listen<any>('agent_status', (event) => {
+            console.log('[HiveChat] Agent status:', event.payload);
+            if (event.payload.status === 'working') {
+              setActiveAgent(event.payload.role);
+            } else {
+              setActiveAgent(undefined);
+            }
           })
         );
 
@@ -262,6 +280,7 @@ export const useSwarmOrchestration = (options?: UseSwarmOrchestrationOptions) =>
     messages,
     isRunning,
     consensusReached,
+    activeAgent,
     error,
     sessionHistory,
 

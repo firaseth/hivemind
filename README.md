@@ -8,22 +8,24 @@
 
 HiveMind is a high-performance, local-first agentic swarm orchestrator built on **Tauri 2.0** and **React**. It enables complex problem solving by deploying a "swarm" of specialized AI agents that collaborate, critique, and reach consensus on difficult tasks—all running on your local machine via Ollama.
 
-## ✨ Key Features
+## ✨ Top-Tier Features
 
-- **🛡️ Distributed Swarm Intelligence**: Deploy multiple specialized agents (Planner, Researcher, Executor, Critic, Creator) to solve a single goal.
-- **🤝 Consensus Engine**: Automated voting system where agents review and critique each other's outputs until an optimal solution is reached.
-- **🧠 Hybrid Memory System**: Integrated SQLite for structured long-term memory and ChromaDB for high-dimensional vector similarity search.
-- **⚡ Local-First Performance**: Built with Rust (Tauri) for minimal footprint and maximum security. No data leaves your machine.
-- **🔍 Decision Replay**: Full transparency into the "thought process" of every agent in the swarm.
-- **🚀 Proactive Background Swarm**: Agents can run in the background to surface insights and identify project risks before they become problems.
+- **🕸️ Real-time Swarm Visualization**: Watch your agent hive think in real-time with an integrated execution graph built on @xyflow.
+- **🛡️ Consensus-Driven Orchestration**: Automated voting system where agents debate, critique, and reach consensus on difficult tasks.
+- **🧠 Advanced Tiered Memory**: Hybrid SQLite long-term memory and ChromaDB vector similarity for deep context recall.
+- **⚡ High-Performance Rust Kernel**: Built with Tauri 2.0 for a lightweight, secure, and blazing-fast local experience.
+- **🔍 Decision Replay & Transparency**: Full audit logs of every agent's thought process, confidence levels, and reasoning.
+- **🧩 Developer-First Extensibility**: Easily add custom agent personas and toolsets via a structured orchestration API.
 
 ## 🏗️ Architecture
 
-HiveMind uses a multi-layered architecture:
-1.  **UI Layer (React)**: A modern, responsive dashboard for managing swarms and viewing agent debates.
-2.  **Orchestration Layer (TypeScript/LangChain)**: Manages the lifecycle of agent chains, consensus logic, and memory retrieval.
-3.  **Kernel Layer (Rust/Tauri)**: Handles low-level system operations, Ollama service management, and database persistence.
-4.  **Inference Layer (Ollama)**: Local LLM execution (supports Gemma 2, Llama 3, Mistral, etc.).
+HiveMind utilizes a sophisticated multi-layered architecture:
+1.  **UI Layer (React + @xyflow)**: A modern, glassmorphic dashboard for managing swarms with live graph visualization.
+2.  **Orchestration Layer (LangChain)**: Manages non-linear agent graphs, consensus logic, and tiered memory retrieval.
+3.  **Kernel Layer (Rust/Tauri)**: High-speed system bridge, Ollama service management, and database persistence.
+4.  **Inference Layer (Ollama)**: Local LLM execution for data privacy and speed.
+
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for a deep dive into the engine.
 
 ## 🚀 Getting Started
 

@@ -1,6 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { AgentMessage } from '../../types/agent';
 import { useSwarmOrchestration } from '../../hooks/useSwarmOrchestration';
+import SwarmGraph from '../ui/SwarmGraph';
 import '../../styles/HiveChat.css';
 
 interface HiveChatProps {
@@ -15,6 +16,7 @@ export const HiveChat: React.FC<HiveChatProps> = ({ sessionId, onApproval, onRej
     messages,
     isRunning,
     consensusReached,
+    activeAgent,
     executeSwarm,
     approveAction,
     rejectAction,
@@ -22,6 +24,7 @@ export const HiveChat: React.FC<HiveChatProps> = ({ sessionId, onApproval, onRej
 
   const [goalInput, setGoalInput] = useState('');
   const [showReplayLog, setShowReplayLog] = useState(false);
+  const [viewMode, setViewMode] = useState<'chat' | 'graph'>('chat');
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   // Auto-scroll to latest message
@@ -79,15 +82,36 @@ export const HiveChat: React.FC<HiveChatProps> = ({ sessionId, onApproval, onRej
           </div>
         </div>
         <div className="hivechat-header-right">
+          <div className="view-toggle">
+            <button 
+              className={`toggle-btn ${viewMode === 'chat' ? 'active' : ''}`}
+              onClick={() => setViewMode('chat')}
+            >
+              💬 Chat
+            </button>
+            <button 
+              className={`toggle-btn ${viewMode === 'graph' ? 'active' : ''}`}
+              onClick={() => setViewMode('graph')}
+            >
+              🕸️ Graph
+            </button>
+          </div>
           <button 
             className="replay-btn"
             onClick={() => setShowReplayLog(!showReplayLog)}
             title="View decision transparency log"
           >
-            📋 Decision Replay
+            📋 Log
           </button>
         </div>
       </div>
+
+      {/* Visualization Graph */}
+      {viewMode === 'graph' && (
+        <div className="swarm-graph-overlay">
+          <SwarmGraph activeAgent={activeAgent} />
+        </div>
+      )}
 
       {/* Decision Replay Log */}
       {showReplayLog && (
