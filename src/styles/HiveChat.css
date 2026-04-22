@@ -1,0 +1,445 @@
+.hivechat-container {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--color-background-primary);
+  border-radius: var(--border-radius-lg);
+  border: 0.5px solid var(--color-border-tertiary);
+  overflow: hidden;
+}
+
+/* ============================================================================
+   HEADER
+   ============================================================================ */
+
+.hivechat-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16px 18px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+
+.hivechat-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.hivechat-header-left h2 {
+  font-size: 16px;
+  font-weight: 500;
+  margin: 0;
+  color: var(--color-text-primary);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 12px;
+}
+
+.status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #B4B2A9;
+  transition: background 0.3s ease;
+}
+
+.status-dot.active {
+  background: #0F6E56;
+  animation: pulse-dot 1.5s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.6;
+  }
+}
+
+.status-text {
+  color: var(--color-text-secondary);
+}
+
+.hivechat-header-right {
+  display: flex;
+  gap: 8px;
+}
+
+.replay-btn {
+  font-size: 13px;
+  padding: 6px 12px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: 6px;
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.replay-btn:hover {
+  background: var(--color-background-tertiary);
+  border-color: var(--color-border-primary);
+}
+
+/* ============================================================================
+   DECISION REPLAY PANEL
+   ============================================================================ */
+
+.decision-replay-panel {
+  padding: 12px 18px;
+  border-bottom: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-tertiary);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.decision-replay-panel h3 {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0 0 10px;
+  color: var(--color-text-primary);
+}
+
+.decision-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  padding: 8px;
+  margin-bottom: 8px;
+  border-radius: 6px;
+  background: var(--color-background-primary);
+  border: 0.5px solid var(--color-border-tertiary);
+  font-size: 12px;
+}
+
+.decision-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+}
+
+.decision-action {
+  color: var(--color-text-primary);
+  flex: 1;
+}
+
+.decision-confidence {
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+/* ============================================================================
+   MESSAGES AREA
+   ============================================================================ */
+
+.hivechat-messages {
+  flex: 1;
+  overflow-y: auto;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  color: var(--color-text-secondary);
+  text-align: center;
+}
+
+.empty-state p {
+  margin: 8px 0;
+  font-size: 14px;
+}
+
+.empty-state p:first-child {
+  font-size: 28px;
+  margin-bottom: 12px;
+}
+
+/* Message Bubble */
+.message {
+  padding: 11px 13px;
+  border-radius: 9px;
+  border-left: 3px solid;
+  font-size: 13px;
+  line-height: 1.5;
+  transition: all 0.2s ease;
+}
+
+.message:hover {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.message-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 7px;
+}
+
+.agent-badge {
+  font-size: 11px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  min-width: fit-content;
+}
+
+.message-meta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.message-type {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  letter-spacing: 0.02em;
+}
+
+.confidence-badge {
+  font-size: 10px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: var(--color-background-primary);
+  color: var(--color-text-secondary);
+}
+
+.message-time {
+  font-size: 10px;
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.message-content {
+  color: var(--color-text-primary);
+  word-wrap: break-word;
+}
+
+/* Thinking Animation */
+.message.thinking {
+  background: var(--color-background-secondary);
+  border: 0.5px solid var(--color-border-tertiary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 13px;
+}
+
+.thinking-dots {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.thinking-dots span {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-text-secondary);
+  animation: dot-blink 1.4s infinite;
+}
+
+.thinking-dots span:nth-child(1) {
+  animation-delay: 0s;
+}
+
+.thinking-dots span:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.thinking-dots span:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes dot-blink {
+  0%, 60%, 100% {
+    opacity: 0.3;
+  }
+  30% {
+    opacity: 1;
+  }
+}
+
+/* ============================================================================
+   APPROVAL GATE
+   ============================================================================ */
+
+.approval-gate {
+  padding: 14px;
+  background: var(--color-background-secondary);
+  border-top: 0.5px solid var(--color-border-tertiary);
+}
+
+.approval-content {
+  padding: 12px;
+  background: #E1F5EE;
+  border-radius: 9px;
+  border-left: 3px solid #0F6E56;
+}
+
+.approval-content h3 {
+  font-size: 13px;
+  font-weight: 500;
+  margin: 0 0 6px;
+  color: #085041;
+}
+
+.approval-content p {
+  font-size: 12px;
+  color: #0F6E56;
+  margin: 0 0 12px;
+  line-height: 1.5;
+}
+
+.approval-buttons {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-approve,
+.btn-reject {
+  flex: 1;
+  padding: 8px 13px;
+  border: none;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-approve {
+  background: #0F6E56;
+  color: #E1F5EE;
+}
+
+.btn-approve:hover:not(:disabled) {
+  background: #085041;
+  transform: translateY(-1px);
+}
+
+.btn-reject {
+  background: #FCEBEB;
+  color: #791F1F;
+  border: 0.5px solid #F09595;
+}
+
+.btn-reject:hover:not(:disabled) {
+  background: #F7C1C1;
+  transform: translateY(-1px);
+}
+
+.btn-approve:disabled,
+.btn-reject:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ============================================================================
+   INPUT AREA
+   ============================================================================ */
+
+.hivechat-input-form {
+  padding: 14px;
+  border-top: 0.5px solid var(--color-border-tertiary);
+  background: var(--color-background-secondary);
+}
+
+.input-wrapper {
+  display: flex;
+  gap: 8px;
+}
+
+.goal-input {
+  flex: 1;
+  padding: 10px 12px;
+  border: 0.5px solid var(--color-border-secondary);
+  border-radius: 8px;
+  font-size: 13px;
+  background: var(--color-background-primary);
+  color: var(--color-text-primary);
+  outline: none;
+  transition: all 0.2s ease;
+}
+
+.goal-input:focus {
+  border-color: var(--color-border-primary);
+  box-shadow: 0 0 0 2px rgba(15, 110, 86, 0.1);
+}
+
+.goal-input:disabled {
+  background: var(--color-background-tertiary);
+  opacity: 0.6;
+}
+
+.launch-btn {
+  padding: 10px 16px;
+  background: #0F6E56;
+  color: #E1F5EE;
+  border: none;
+  border-radius: 8px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.launch-btn:hover:not(:disabled) {
+  background: #085041;
+  transform: translateY(-1px);
+}
+
+.launch-btn:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.launch-btn:disabled {
+  background: var(--color-border-tertiary);
+  color: var(--color-text-secondary);
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+/* ============================================================================
+   SCROLLBAR STYLING
+   ============================================================================ */
+
+.hivechat-messages::-webkit-scrollbar,
+.decision-replay-panel::-webkit-scrollbar {
+  width: 6px;
+}
+
+.hivechat-messages::-webkit-scrollbar-track,
+.decision-replay-panel::-webkit-scrollbar-track {
+  background: var(--color-background-secondary);
+}
+
+.hivechat-messages::-webkit-scrollbar-thumb,
+.decision-replay-panel::-webkit-scrollbar-thumb {
+  background: var(--color-border-secondary);
+  border-radius: 3px;
+}
+
+.hivechat-messages::-webkit-scrollbar-thumb:hover,
+.decision-replay-panel::-webkit-scrollbar-thumb:hover {
+  background: var(--color-border-primary);
+}

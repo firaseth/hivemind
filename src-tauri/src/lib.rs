@@ -6,6 +6,7 @@ use rusqlite::Connection;
 use memory::MemoryEntry;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
+
 #[tauri::command]
 fn greet(name: &str) -> String {
     format!("Hello, {}! You've been greeted from Rust!", name)
@@ -17,7 +18,6 @@ fn start_ollama(state: tauri::State<'_, AppState>, port: Option<u16>) -> Result<
     if process_lock.is_some() {
         return Ok("Ollama service already running".into());
     }
-
     let port = port.unwrap_or(11434);
     let child = Command::new("ollama")
         .arg("serve")
@@ -27,7 +27,6 @@ fn start_ollama(state: tauri::State<'_, AppState>, port: Option<u16>) -> Result<
         .arg("127.0.0.1")
         .spawn()
         .map_err(|err| format!("Failed to start Ollama: {}", err))?;
-
     *process_lock = Some(child);
     Ok(format!("Ollama started on http://127.0.0.1:{}", port))
 }
@@ -74,10 +73,85 @@ fn list_memory_entries(state: tauri::State<'_, AppState>) -> Result<Vec<MemoryEn
     Ok(results)
 }
 
+// ============================================================================
+// NEW SWARM ORCHESTRATION COMMANDS
+// ============================================================================
+
 #[tauri::command]
-fn orchestrate_agent_graph(goal: &str) -> Result<String, String> {
-    Ok(format!("Orchestrated agent graph for goal: {}", goal))
+fn execute_agent_swarm(goal: String, project_id: Option<String>, window: tauri::Window) -> Result<String, String> {
+    // This spawns a Node.js worker that runs the TypeScript orchestrator
+    // For now, we'll return a placeholder that the frontend can handle
+    
+    let session_id = format!("swarm-{}-{}", 
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_secs(),
+        uuid::Uuid::new_v4()
+    );
+    
+    println!("[HiveMind] Swarm session started: {}", session_id);
+    println!("[HiveMind] Goal: {}", goal);
+    
+    // Emit event to frontend indicating swarm started
+    let _ = window.emit("swarm_started", serde_json::json!({
+        "sessionId": session_id,
+        "goal": goal,
+        "projectId": project_id,
+        "timestamp": std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_millis()
+    }));
+    
+    Ok(session_id)
 }
+
+#[tauri::command]
+fn get_swarm_status(session_id: String) -> Result<serde_json::Value, String> {
+    // Return current swarm status
+    Ok(serde_json::json!({
+        "sessionId": session_id,
+        "status": "running",
+        "activeAgents": ["planner", "researcher", "executor"],
+        "messagesCount": 0,
+        "consensusReached": false
+    }))
+}
+
+#[tauri::command]
+fn approve_swarm_action(session_id: String, action_id: String) -> Result<String, String> {
+    println!("[HiveMind] Approved action {} in session {}", action_id, session_id);
+    Ok(format!("Action {} approved", action_id))
+}
+
+#[tauri::command]
+fn reject_swarm_action(session_id: String, action_id: String, reason: String) -> Result<String, String> {
+    println!("[HiveMind] Rejected action {} in session {}: {}", action_id, session_id, reason);
+    Ok(format!("Action {} rejected", action_id))
+}
+
+#[tauri::command]
+fn get_decision_log(session_id: String, limit: Option<usize>) -> Result<Vec<serde_json::Value>, String> {
+    // Return decision log for Decision Replay UI
+    let limit = limit.unwrap_or(10);
+    Ok(vec![
+        serde_json::json!({
+            "action": "Analyzed goal for task breakdown",
+            "model": "gemma2:9b",
+            "confidence": 94,
+            "reasoning": "Identified 5 key phases",
+            "timestamp": std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis()
+        })
+    ])
+}
+
+// ============================================================================
+// STATE AND APP INITIALIZATION
+// ============================================================================
 
 struct AppState {
     ollama_process: Mutex<Option<Child>>,
@@ -88,15 +162,17 @@ struct AppState {
 pub fn run() {
     let db = memory::open_memory_db("hivemind_memory.db").expect("Failed to open SQLite memory store");
     memory::init_memory_db(&db).expect("Failed to initialize memory database");
-
+    
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_shell::init())
         .manage(AppState {
             ollama_process: Mutex::new(None),
             db: Mutex::new(db),
         })
         .invoke_handler(
             tauri::generate_handler![
+                // Existing commands
                 greet,
                 start_ollama,
                 stop_ollama,
@@ -104,7 +180,12 @@ pub fn run() {
                 save_memory_entry,
                 query_memory_entries,
                 list_memory_entries,
-                orchestrate_agent_graph,
+                // New swarm commands
+                execute_agent_swarm,
+                get_swarm_status,
+                approve_swarm_action,
+                reject_swarm_action,
+                get_decision_log,
             ],
         )
         .run(tauri::generate_context!())
