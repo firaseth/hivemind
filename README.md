@@ -1,6 +1,8 @@
 # 🐝 HiveMind: Distributed Agent Orchestration
 
-![HiveMind Banner](https://img.shields.io/badge/HiveMind-Agent%20Swarm-orange?style=for-the-badge&logo=hive)
+![HiveMind Banner](banner.png)
+
+![HiveMind Badge](https://img.shields.io/badge/HiveMind-Agent%20Swarm-orange?style=for-the-badge&logo=hive)
 ![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 ![Tauri](https://img.shields.io/badge/Tauri-2.0-blueviolet?style=for-the-badge&logo=tauri)
 ![React](https://img.shields.io/badge/React-18.3-61DAFB?style=for-the-badge&logo=react)
