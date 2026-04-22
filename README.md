@@ -17,15 +17,55 @@ HiveMind is a high-performance, local-first agentic swarm orchestrator built on 
 - **🔍 Decision Replay & Transparency**: Full audit logs of every agent's thought process, confidence levels, and reasoning.
 - **🧩 Developer-First Extensibility**: Easily add custom agent personas and toolsets via a structured orchestration API.
 
-## 🏗️ Architecture
+## 🏗️ System Architecture
 
-HiveMind utilizes a sophisticated multi-layered architecture:
-1.  **UI Layer (React + @xyflow)**: A modern, glassmorphic dashboard for managing swarms with live graph visualization.
-2.  **Orchestration Layer (LangChain)**: Manages non-linear agent graphs, consensus logic, and tiered memory retrieval.
-3.  **Kernel Layer (Rust/Tauri)**: High-speed system bridge, Ollama service management, and database persistence.
-4.  **Inference Layer (Ollama)**: Local LLM execution for data privacy and speed.
+```text
+┌─────────────────────────────────────────┐
+│          React Frontend                 │
+│  ┌─────────────────────────────────┐   │
+│  │  HiveChat Component             │   │
+│  │  - Real-time messages           │   │
+│  │  - Agent colors & confidence    │   │
+│  │  - Approval gates               │   │
+│  │  - Decision Replay              │   │
+│  └─────────────────────────────────┘   │
+└──────────────────┬──────────────────────┘
+                   │
+           Tauri IPC Bridge
+                   │
+┌──────────────────▼──────────────────────┐
+│        Tauri Backend (Rust)             │
+│  - Ollama process management            │
+│  - Swarm command routing                │
+│  - SQLite memory persistence            │
+└──────────────────┬──────────────────────┘
+                   │
+                   ▼
+┌─────────────────────────────────────────┐
+│   Swarm Orchestration (TypeScript)      │
+│  ┌─────────────────────────────────┐   │
+│  │ Agent Chains (LangChain)        │   │
+│  │ - Planner      - Researcher     │   │
+│  │ - Executor     - Critic         │   │
+│  │ - Creator      - Memory Keeper  │   │
+│  └─────────────────────────────────┘   │
+│           ↓↓↓ Parallel ↓↓↓             │
+│  ┌─────────────────────────────────┐   │
+│  │ Consensus Engine                │   │
+│  │ - Debate protocol               │   │
+│  │ - Agreement scoring             │   │
+│  │ - Decision logging              │   │
+│  └─────────────────────────────────┘   │
+└──────────────────┬──────────────────────┘
+                   │
+                   ▼
+        ┌──────────────────┐
+        │  Ollama (9B LLM) │
+        │  gemma2:9b       │
+        └──────────────────┘
+```
 
-See [ARCHITECTURE.md](./ARCHITECTURE.md) for a deep dive into the engine.
+See [ARCHITECTURE.md](./ARCHITECTURE.md) for a deep-dive technical breakdown.
 
 ## 🚀 Getting Started
 
