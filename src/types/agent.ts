@@ -1,4 +1,8 @@
-﻿export type AgentRole =
+// ============================================================================
+// AGENT TYPES — HiveMind
+// ============================================================================
+
+export type AgentRole =
   | 'planner'
   | 'researcher'
   | 'executor'
@@ -6,17 +10,29 @@
   | 'creator'
   | 'memory'
   | 'user'
+  | 'system'
 
 export type AgentStatus = 'idle' | 'thinking' | 'working' | 'done' | 'error'
+
+export type MessageType = 'thought' | 'output' | 'critique' | 'vote' | 'error'
+
+// ============================================================================
+// MESSAGES
+// ============================================================================
 
 export interface AgentMessage {
   id: string
   agentRole: AgentRole
   content: string
   timestamp: number
-  type: 'thought' | 'output' | 'critique' | 'vote'
+  type: MessageType
   confidence?: number
+  sessionId?: string
 }
+
+// ============================================================================
+// AGENT CONFIG
+// ============================================================================
 
 export interface AgentPersona {
   role: AgentRole
@@ -47,6 +63,10 @@ export interface AgentChainConfig {
   vectorStoreConfig?: VectorStoreConfig
 }
 
+// ============================================================================
+// MEMORY & VECTOR STORE
+// ============================================================================
+
 export interface VectorStoreConfig {
   provider: 'chroma'
   collectionName: string
@@ -66,22 +86,6 @@ export interface VectorStoreEntry {
   metadata?: Record<string, unknown>
 }
 
-export interface SwarmGoal {
-  id: string
-  text: string
-  createdAt: number
-  status: 'pending' | 'running' | 'approved' | 'done' | 'failed'
-}
-
-export interface SwarmSession {
-  id: string
-  goal: SwarmGoal
-  messages: AgentMessage[]
-  startedAt: number
-  consensusReached: boolean
-  approved: boolean
-}
-
 export interface MemoryEntry {
   id: string
   content: string
@@ -92,6 +96,34 @@ export interface MemoryEntry {
   embedding?: number[]
 }
 
+// ============================================================================
+// SWARM SESSION
+// ============================================================================
+
+export type SwarmGoalStatus = 'pending' | 'running' | 'approved' | 'done' | 'failed'
+
+export interface SwarmGoal {
+  id: string
+  text: string
+  createdAt: number
+  status: SwarmGoalStatus
+}
+
+export interface SwarmSession {
+  id: string
+  goal: SwarmGoal
+  messages: AgentMessage[]
+  startedAt: number
+  completedAt?: number
+  consensusReached: boolean
+  approved: boolean
+  decisionLog?: DecisionRecord[]
+}
+
+// ============================================================================
+// DECISIONS & AUDIT
+// ============================================================================
+
 export interface DecisionRecord {
   id: string
   action: string
@@ -99,11 +131,53 @@ export interface DecisionRecord {
   confidence: number
   reasoning: string
   timestamp: number
+  agentRole?: AgentRole
+  memoryUsed?: string[]
 }
+
+export interface SessionLog {
+  sessionId: string
+  goal: string
+  agentOutputs: Record<string, string>
+  consensusScore: number
+  consensusReached: boolean
+  recommendedAction: string
+  timestamp: number
+  durationMs: number
+}
+
+// ============================================================================
+// GRAPH TOPOLOGY
+// ============================================================================
 
 export interface AgentGraphNode {
   id: string
   agentId: string
   role: AgentRole
   nextIds: string[]
+}
+
+// ============================================================================
+// OLLAMA MODEL INFO
+// ============================================================================
+
+export interface OllamaModel {
+  name: string
+  size: number
+  digest: string
+  modifiedAt: string
+  details?: {
+    format: string
+    family: string
+    parameterSize: string
+    quantizationLevel: string
+  }
+}
+
+export interface OllamaStatus {
+  running: boolean
+  baseUrl: string
+  models: OllamaModel[]
+  selectedModel: string
+  error?: string
 }
