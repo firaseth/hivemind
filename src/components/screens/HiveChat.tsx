@@ -75,7 +75,7 @@ export const HiveChat: React.FC<HiveChatProps> = ({ sessionId, onApproval, onRej
         <div className="hivechat-header-left">
           <h2>HiveMind Swarm</h2>
           <div className="status-indicator">
-            <span className={`status-dot \${isRunning ? 'active' : 'idle'}`}></span>
+            <span className={`status-dot ${isRunning ? 'active' : 'idle'}`}></span>
             <span className="status-text">
               {isRunning ? 'Thinking...' : consensusReached ? 'Consensus Reached' : 'Ready'}
             </span>

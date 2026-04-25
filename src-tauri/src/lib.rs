@@ -1,5 +1,6 @@
 mod memory;
 
+use tauri::Emitter;
 use std::process::{Child, Command};
 use std::sync::Mutex;
 use rusqlite::Connection;
