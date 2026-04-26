@@ -1,10 +1,7 @@
-import { createAgentChain, runConsensusVote, brainRouter, logDecision, AGENT_PERSONAS } from "./chains";
+import { runConsensusVote, brainRouter, logDecision, AGENT_PERSONAS } from "./chains";
+import { runAgentPrompt } from "./ollama";
 import type { AgentMessage, MemoryEntry } from "../types/agent";
 import { emit } from "@tauri-apps/api/event";
-
-// ============================================================================
-// SWARM ORCHESTRATOR
-// ============================================================================
 
 export interface SwarmExecutionConfig {
   goal: string;
@@ -29,23 +26,22 @@ export const executeSwarm = async (
   const messages: AgentMessage[] = [];
   const decisionLog: any[] = [];
 
-  console.log(`[HiveMind] Starting swarm session: ${sessionId}`);
-  console.log(`[HiveMind] Goal: ${config.goal}`);
+  console.log(`[HiveMind] Starting swarm: ${sessionId} — Goal: ${config.goal}`);
 
-  // Route the task
   const routerDecision = await brainRouter(config.goal, "high");
-  console.log(`[HiveMind] Brain Router: ${routerDecision.selectedModel} (confidence: ${routerDecision.confidence}%)`);
+  console.log(`[HiveMind] Router: ${routerDecision.selectedModel}`);
 
   const updateStatus = async (role: string, status: string) => {
-    await emit("agent_status", { role, status, sessionId });
+    try { await emit("agent_status", { role, status, sessionId }); } catch {}
   };
 
-  // ── Run all agents in parallel ─────────────────────────────────────────────
-  await updateStatus("planner",    "working");
-  await updateStatus("researcher", "working");
-  await updateStatus("creator",    "working");
-  await updateStatus("executor",   "working");
-  await updateStatus("memory",     "working");
+  await Promise.all([
+    updateStatus("planner",    "working"),
+    updateStatus("researcher", "working"),
+    updateStatus("creator",    "working"),
+    updateStatus("executor",   "working"),
+    updateStatus("memory",     "working"),
+  ]);
 
   const [plannerResult, researcherResult, creatorResult, executorResult, memoryResult] =
     await Promise.all([
@@ -56,11 +52,13 @@ export const executeSwarm = async (
       runAgentChain("memory",     config.goal, config.memoryContext, sessionId),
     ]);
 
-  await updateStatus("planner",    "idle");
-  await updateStatus("researcher", "idle");
-  await updateStatus("creator",    "idle");
-  await updateStatus("executor",   "idle");
-  await updateStatus("memory",     "idle");
+  await Promise.all([
+    updateStatus("planner",    "idle"),
+    updateStatus("researcher", "idle"),
+    updateStatus("creator",    "idle"),
+    updateStatus("executor",   "idle"),
+    updateStatus("memory",     "idle"),
+  ]);
 
   messages.push(
     ...plannerResult.messages,
@@ -70,7 +68,6 @@ export const executeSwarm = async (
     ...memoryResult.messages,
   );
 
-  // ── Critic reviews all outputs ─────────────────────────────────────────────
   await updateStatus("critic", "working");
   const criticResult = await runCriticReview(
     config.goal,
@@ -80,7 +77,6 @@ export const executeSwarm = async (
   await updateStatus("critic", "idle");
   messages.push(...criticResult.messages);
 
-  // ── Consensus vote ─────────────────────────────────────────────────────────
   const consensus = await runConsensusVote(
     plannerResult.output,
     researcherResult.output,
@@ -89,50 +85,31 @@ export const executeSwarm = async (
     criticResult.output
   );
 
-  console.log(`[HiveMind] Consensus: ${consensus.consensus} (agreement: ${consensus.agreementScore}%)`);
+  console.log(`[HiveMind] Consensus: ${consensus.consensus} (${consensus.agreementScore}%)`);
 
-  messages.push({
+  const consensusMsg: AgentMessage = {
     id: `msg-${Date.now()}-consensus`,
     agentRole: "system" as any,
-    content: `🐝 Consensus reached (${consensus.agreementScore}% agreement)\n\n${consensus.recommendedAction}`,
+    content: `🐝 Consensus ${consensus.consensus ? "reached" : "pending"} (${consensus.agreementScore}% agreement)\n\n${consensus.recommendedAction}`,
     timestamp: Date.now(),
     type: "output",
     confidence: consensus.agreementScore,
-  });
+  };
+  messages.push(consensusMsg);
+  try { await emit("agent_message", consensusMsg); } catch {}
+  try {
+    await emit("consensus_reached", {
+      sessionId,
+      consensus: consensus.consensus,
+      agreementScore: consensus.agreementScore,
+      recommendedAction: consensus.recommendedAction,
+    });
+  } catch {}
 
-  await emit("consensus_reached", {
-    sessionId,
-    consensus: consensus.consensus,
-    agreementScore: consensus.agreementScore,
-    recommendedAction: consensus.recommendedAction,
-  });
-
-  // ── Decision log ───────────────────────────────────────────────────────────
   decisionLog.push(
-    logDecision(
-      `Planned: ${plannerResult.output.substring(0, 50)}...`,
-      "gemma2:9b",
-      plannerResult.confidence,
-      plannerResult.reasoning,
-      config.memoryContext?.map(m => m.id) || [],
-      "planner"
-    ),
-    logDecision(
-      `Researched: ${researcherResult.output.substring(0, 50)}...`,
-      "gemma2:9b",
-      researcherResult.confidence,
-      researcherResult.reasoning,
-      config.memoryContext?.map(m => m.id) || [],
-      "researcher"
-    ),
-    logDecision(
-      `Reviewed: ${criticResult.output.substring(0, 50)}...`,
-      "gemma2:9b",
-      criticResult.confidence,
-      criticResult.reasoning,
-      config.memoryContext?.map(m => m.id) || [],
-      "critic"
-    )
+    logDecision(`Planned: ${plannerResult.output.substring(0, 50)}...`, "gemma2:2b", plannerResult.confidence, plannerResult.reasoning, [], "planner"),
+    logDecision(`Researched: ${researcherResult.output.substring(0, 50)}...`, "gemma2:2b", researcherResult.confidence, researcherResult.reasoning, [], "researcher"),
+    logDecision(`Reviewed: ${criticResult.output.substring(0, 50)}...`, "gemma2:2b", criticResult.confidence, criticResult.reasoning, [], "critic"),
   );
 
   return {
@@ -144,10 +121,6 @@ export const executeSwarm = async (
     decisionLog,
   };
 };
-
-// ============================================================================
-// HELPER: Run single agent chain
-// ============================================================================
 
 interface AgentChainResult {
   output: string;
@@ -162,73 +135,60 @@ export const runAgentChain = async (
   memoryContext?: MemoryEntry[],
   sessionId?: string
 ): Promise<AgentChainResult> => {
-  const chain  = createAgentChain(agentRole);
   const persona = AGENT_PERSONAS[agentRole];
 
-  // Format memory context as readable string
   const memoryString = memoryContext && memoryContext.length > 0
     ? memoryContext.map(m => `- [${m.agentRole}] ${m.content}`).join("\n")
-    : "No previous memory available.";
+    : "No previous memory.";
+
+  const userPrompt = `Goal: ${goal}\n\nMemory context:\n${memoryString}\n\nProvide your analysis and end with [CONFIDENCE: X] where X is 0-100.`;
 
   try {
-    const output = await chain.invoke({
-      systemPrompt:     persona.systemPrompt,
-      goal,
-      context:          "No additional context.",
-      previousMessages: "No previous agent messages.",
-      memoryContext:    memoryString,
-    });
+    const result = await runAgentPrompt(
+      persona.systemPrompt,
+      userPrompt,
+      { model: "gemma2:2b", temperature: 0.7 }
+    );
 
-    const confidenceMatch = output.match(/\[CONFIDENCE:\s*(\d+)\]/);
+    const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
 
     const message: AgentMessage = {
       id:        `msg-${Date.now()}-${agentRole}`,
       agentRole: agentRole as any,
-      content:   output,
+      content:   result.content || `${persona.name} completed analysis.`,
       timestamp: Date.now(),
       type:      "thought",
       confidence,
     };
 
-    if (sessionId) {
-      await emit("agent_message", message);
-    }
+    try { if (sessionId) await emit("agent_message", message); } catch {}
+    console.log(`[HiveMind] ${persona.name} responded (${result.durationMs}ms)`);
 
     return {
-      output,
+      output:    result.content,
       confidence,
-      reasoning: `${persona.name} analyzed the goal and provided structured output`,
+      reasoning: `${persona.name} analyzed the goal directly via Ollama`,
       messages:  [message],
     };
+
   } catch (error) {
-    console.error(`[HiveMind] Error running ${agentRole} agent:`, error);
+    console.error(`[HiveMind] ${agentRole} error:`, error);
 
     const message: AgentMessage = {
       id:        `msg-${Date.now()}-${agentRole}-error`,
       agentRole: agentRole as any,
-      content:   `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
+      content:   `${persona.name} encountered an error: ${error instanceof Error ? error.message : "Unknown error"}`,
       timestamp: Date.now(),
       type:      "thought",
       confidence: 0,
     };
 
-    if (sessionId) {
-      await emit("agent_message", message);
-    }
+    try { if (sessionId) await emit("agent_message", message); } catch {}
 
-    return {
-      output:    message.content,
-      confidence: 0,
-      reasoning: "Agent encountered an error",
-      messages:  [message],
-    };
+    return { output: message.content, confidence: 0, reasoning: "Agent error", messages: [message] };
   }
 };
-
-// ============================================================================
-// HELPER: Critic review
-// ============================================================================
 
 export const runCriticReview = async (
   goal: string,
@@ -236,61 +196,42 @@ export const runCriticReview = async (
   memoryContext?: MemoryEntry[]
 ): Promise<AgentChainResult> => {
   const persona = AGENT_PERSONAS["critic"];
-  const chain   = createAgentChain("critic");
 
-  const memoryString = memoryContext && memoryContext.length > 0
-    ? memoryContext.map(m => `- [${m.agentRole}] ${m.content}`).join("\n")
-    : "No previous memory available.";
-
-  const criticGoal = `Review the following agent outputs for the goal: "${goal}"
-
-${outputs.map((o, i) => `Agent ${i + 1}:\n${o}`).join("\n\n")}
-
-Score quality (0-100), identify strengths, gaps, and risks.`;
+  const criticGoal = `Review these agent outputs for the goal: "${goal}"\n\n${outputs.map((o, i) => `Agent ${i + 1}:\n${o}`).join("\n\n")}\n\nScore quality (0-100) and provide recommendations. End with [CONFIDENCE: X].`;
 
   try {
-    const output = await chain.invoke({
-      systemPrompt:     persona.systemPrompt,
-      goal:             criticGoal,
-      context:          "Reviewing all agent outputs for quality.",
-      previousMessages: outputs.join("\n---\n"),
-      memoryContext:    memoryString,
-    });
+    const result = await runAgentPrompt(
+      persona.systemPrompt,
+      criticGoal,
+      { model: "gemma2:2b", temperature: 0.5 }
+    );
 
-    const confidenceMatch = output.match(/\[CONFIDENCE:\s*(\d+)\]/);
+    const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
 
     const message: AgentMessage = {
-      id:        `msg-${Date.now()}-critic-review`,
+      id:        `msg-${Date.now()}-critic`,
       agentRole: "critic",
-      content:   output,
+      content:   result.content || "Critic completed review.",
       timestamp: Date.now(),
       type:      "critique",
       confidence,
     };
 
-    await emit("agent_message", message);
+    try { await emit("agent_message", message); } catch {}
 
-    return {
-      output,
-      confidence,
-      reasoning: "Critic reviewed all agent outputs for quality and coherence",
-      messages:  [message],
-    };
+    return { output: result.content, confidence, reasoning: "Critic reviewed all outputs", messages: [message] };
+
   } catch (error) {
-    console.error("[HiveMind] Error running critic review:", error);
+    console.error("[HiveMind] Critic error:", error);
     return {
-      output:    `Error during review: ${error instanceof Error ? error.message : "Unknown error"}`,
+      output:    `Critic error: ${error instanceof Error ? error.message : "Unknown"}`,
       confidence: 0,
-      reasoning: "Critic review failed",
+      reasoning: "Critic failed",
       messages:  [],
     };
   }
 };
-
-// ============================================================================
-// BACKGROUND SWARM
-// ============================================================================
 
 let backgroundSwarmRunning = false;
 
@@ -301,27 +242,24 @@ export const startBackgroundSwarm = async (config: {
 }): Promise<void> => {
   if (backgroundSwarmRunning) return;
   backgroundSwarmRunning = true;
+  const interval = config.checkIntervalMs || 300_000;
 
-  const checkInterval = config.checkIntervalMs || 300_000;
-
-  const backgroundCheck = async () => {
+  const check = async () => {
     if (!backgroundSwarmRunning) return;
     try {
       await executeSwarm({
-        goal: `Analyze project "${config.projectId}" for upcoming deadlines, resource constraints, and dependency issues. Provide proactive recommendations.`,
-        projectId:    config.projectId,
+        goal: `Analyze project "${config.projectId}" for issues and provide proactive recommendations.`,
+        projectId: config.projectId,
         memoryContext: config.memoryContext,
         userApprovalRequired: false,
       });
-    } catch (error) {
-      console.error("[HiveMind] Background swarm error:", error);
+    } catch (e) {
+      console.error("[HiveMind] Background swarm error:", e);
     }
-    if (backgroundSwarmRunning) {
-      setTimeout(backgroundCheck, checkInterval);
-    }
+    if (backgroundSwarmRunning) setTimeout(check, interval);
   };
 
-  backgroundCheck();
+  check();
 };
 
 export const stopBackgroundSwarm = (): void => {
