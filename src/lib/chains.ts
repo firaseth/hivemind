@@ -3,7 +3,7 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import type { AgentPersona, MemoryEntry } from "../types/agent";
 
-const DEFAULT_MODEL = "gemma2:9b";
+const DEFAULT_MODEL = "gemma2:2b";
 const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
 
 // ============================================================================
@@ -91,9 +91,11 @@ export const createAgentChain = (
   const persona = AGENT_PERSONAS[role];
 
   const llm = new Ollama({
-    model: DEFAULT_MODEL,
-    baseUrl: DEFAULT_BASE_URL,
-  });
+  model: DEFAULT_MODEL,
+  baseUrl: DEFAULT_BASE_URL,
+  keepAlive: "10m",
+  numCtx: 1024,
+});
 
   const promptTemplate = new PromptTemplate({
     template: `{systemPrompt}
@@ -152,9 +154,11 @@ export const runConsensusVote = async (
   reasoning: string;
 }> => {
   const llm = new Ollama({
-    model: DEFAULT_MODEL,
-    baseUrl: DEFAULT_BASE_URL,
-  });
+  model: DEFAULT_MODEL,
+  baseUrl: DEFAULT_BASE_URL,
+  keepAlive: "10m",
+  numCtx: 1024,
+});
 
   const consensusPrompt = new PromptTemplate({
     template: `You are a consensus facilitator reviewing swarm agent outputs.
