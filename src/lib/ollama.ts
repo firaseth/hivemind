@@ -54,7 +54,7 @@ export const ollamaGenerate = async (
   }
 
   const response = await axios.post(`${baseUrl}/api/generate`, payload, {
-    timeout: 120_000,
+    timeout: 250_000,
   })
 
   const data = response.data as {
@@ -97,7 +97,7 @@ export const ollamaChat = async (
   const response = await axios.post(
     `${baseUrl}/api/chat`,
     { model, messages, stream: false, options: { temperature } },
-    { timeout: 120_000 }
+    { timeout: 250_000 }
   )
 
   const data = response.data as {
