@@ -242,7 +242,7 @@ export const startBackgroundSwarm = async (config: {
 }): Promise<void> => {
   if (backgroundSwarmRunning) return;
   backgroundSwarmRunning = true;
-  const interval = config.checkIntervalMs || 300_000;
+  const interval = config.checkIntervalMs || 250_000;
 
   const check = async () => {
     if (!backgroundSwarmRunning) return;
