@@ -96,8 +96,8 @@ export const ollamaChat = async (
 
   const response = await axios.post(
     `${baseUrl}/api/chat`,
-    { model, messages, stream: false, options: { temperature } },
-    { timeout: 250_000 }
+    { model, messages, stream: false, options: { temperature, num_ctx: 512 } },
+    { timeout: 250_000, }
   )
 
   const data = response.data as {
@@ -165,7 +165,10 @@ export const runAgentPrompt = async (
     { role: 'system', content: systemPrompt },
     { role: 'user', content: userPrompt },
   ]
-  return ollamaChat(messages, options)
+  return ollamaChat(messages, {
+    ...options,
+    contextWindow: 512,
+  })
 }
 
 export { DEFAULT_MODEL, DEFAULT_BASE_URL }
