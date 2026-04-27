@@ -43,14 +43,17 @@ export const executeSwarm = async (
     updateStatus("memory",     "working"),
   ]);
 
-  const [plannerResult, researcherResult, creatorResult, executorResult, memoryResult] =
-    await Promise.all([
+  const plannerResult    = await runAgentChain("planner",    config.goal, config.memoryContext, sessionId);
+const researcherResult = await runAgentChain("researcher", config.goal, config.memoryContext, sessionId);
+const creatorResult    = await runAgentChain("creator",    config.goal, config.memoryContext, sessionId);
+const executorResult   = await runAgentChain("executor",   config.goal, config.memoryContext, sessionId);
+const memoryResult     = await runAgentChain("memory",     config.goal, config.memoryContext, sessionId);
       runAgentChain("planner",    config.goal, config.memoryContext, sessionId),
       runAgentChain("researcher", config.goal, config.memoryContext, sessionId),
       runAgentChain("creator",    config.goal, config.memoryContext, sessionId),
       runAgentChain("executor",   config.goal, config.memoryContext, sessionId),
       runAgentChain("memory",     config.goal, config.memoryContext, sessionId),
-    ]);
+
 
   await Promise.all([
     updateStatus("planner",    "idle"),
