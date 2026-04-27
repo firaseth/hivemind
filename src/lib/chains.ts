@@ -3,7 +3,7 @@ import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import type { AgentPersona, MemoryEntry } from "../types/agent";
 
-const DEFAULT_MODEL = "gemma2:2b";
+const DEFAULT_MODEL = "qwen2.5:1.5b";
 const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
 
 // ============================================================================

@@ -107,9 +107,9 @@ export const executeSwarm = async (
   } catch {}
 
   decisionLog.push(
-    logDecision(`Planned: ${plannerResult.output.substring(0, 50)}...`, "gemma2:2b", plannerResult.confidence, plannerResult.reasoning, [], "planner"),
-    logDecision(`Researched: ${researcherResult.output.substring(0, 50)}...`, "gemma2:2b", researcherResult.confidence, researcherResult.reasoning, [], "researcher"),
-    logDecision(`Reviewed: ${criticResult.output.substring(0, 50)}...`, "gemma2:2b", criticResult.confidence, criticResult.reasoning, [], "critic"),
+    logDecision(`Planned: ${plannerResult.output.substring(0, 50)}...`, "qwen2.5:1.5b", plannerResult.confidence, plannerResult.reasoning, [], "planner"),
+    logDecision(`Researched: ${researcherResult.output.substring(0, 50)}...`, "qwen2.5:1.5b", researcherResult.confidence, researcherResult.reasoning, [], "researcher"),
+    logDecision(`Reviewed: ${criticResult.output.substring(0, 50)}...`, "qwen2.5:1.5b", criticResult.confidence, criticResult.reasoning, [], "critic"),
   );
 
   return {
@@ -147,7 +147,7 @@ export const runAgentChain = async (
     const result = await runAgentPrompt(
       persona.systemPrompt,
       userPrompt,
-      { model: "gemma2:2b", temperature: 0.7 }
+      { model: "qwen2.5:1.5b", temperature: 0.7 }
     );
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
@@ -203,7 +203,7 @@ export const runCriticReview = async (
     const result = await runAgentPrompt(
       persona.systemPrompt,
       criticGoal,
-      { model: "gemma2:2b", temperature: 0.5 }
+      { model: "qwen2.5:1.5b", temperature: 0.5 }
     );
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);

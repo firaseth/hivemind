@@ -6,7 +6,7 @@ import type { OllamaModel, OllamaStatus } from '../types/agent'
 // ============================================================================
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:11434'
-const DEFAULT_MODEL = 'gemma2:2b'
+const DEFAULT_MODEL = "qwen2.5:1.5b"
 
 export interface OllamaGenerateOptions {
   model?: string

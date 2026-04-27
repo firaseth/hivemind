@@ -271,6 +271,13 @@
 .message-content {
   color: var(--color-text-primary);
   word-wrap: break-word;
+  .message-content {
+  color: #1a1a1a !important;
+  font-size: 13px;
+  line-height: 1.6;
+  white-space: pre-wrap;
+  word-break: break-word;
+}
 }
 
 /* Thinking Animation */
