@@ -55,12 +55,8 @@
 }
 
 @keyframes pulse-dot {
-  0%, 100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.6;
-  }
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.6; }
 }
 
 .status-text {
@@ -116,7 +112,7 @@
 }
 
 /* ============================================================================
-   DECISION REPLAY PANEL
+   GRAPH + REPLAY PANEL
    ============================================================================ */
 
 .swarm-graph-overlay {
@@ -129,7 +125,7 @@
 
 @keyframes slide-down {
   from { height: 0; opacity: 0; }
-  to { height: 400px; opacity: 1; }
+  to   { height: 400px; opacity: 1; }
 }
 
 .decision-replay-panel {
@@ -211,7 +207,7 @@
   margin-bottom: 12px;
 }
 
-/* Message Bubble */
+/* ── Message Bubble ── */
 .message {
   padding: 11px 13px;
   border-radius: 9px;
@@ -234,7 +230,7 @@
 
 .agent-badge {
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   min-width: fit-content;
@@ -268,19 +264,23 @@
   white-space: nowrap;
 }
 
+/* ── THE KEY FIX: message content text color ── */
 .message-content {
-  color: var(--color-text-primary);
-  word-wrap: break-word;
-  .message-content {
-  color: #1a1a1a !important;
+  color: #1a1a1a;
   font-size: 13px;
   line-height: 1.6;
   white-space: pre-wrap;
   word-break: break-word;
-}
+  word-wrap: break-word;
 }
 
-/* Thinking Animation */
+/* Force dark text on all light-background agent cards */
+.message[style*="backgroundColor"] .message-content,
+.message[style*="background"] .message-content {
+  color: #1a1a1a !important;
+}
+
+/* ── Thinking Animation ── */
 .message.thinking {
   background: var(--color-background-secondary);
   border: 0.5px solid var(--color-border-tertiary);
@@ -304,25 +304,13 @@
   animation: dot-blink 1.4s infinite;
 }
 
-.thinking-dots span:nth-child(1) {
-  animation-delay: 0s;
-}
-
-.thinking-dots span:nth-child(2) {
-  animation-delay: 0.2s;
-}
-
-.thinking-dots span:nth-child(3) {
-  animation-delay: 0.4s;
-}
+.thinking-dots span:nth-child(1) { animation-delay: 0s; }
+.thinking-dots span:nth-child(2) { animation-delay: 0.2s; }
+.thinking-dots span:nth-child(3) { animation-delay: 0.4s; }
 
 @keyframes dot-blink {
-  0%, 60%, 100% {
-    opacity: 0.3;
-  }
-  30% {
-    opacity: 1;
-  }
+  0%, 60%, 100% { opacity: 0.3; }
+  30%            { opacity: 1; }
 }
 
 /* ============================================================================
@@ -467,7 +455,7 @@
 }
 
 /* ============================================================================
-   SCROLLBAR STYLING
+   SCROLLBAR
    ============================================================================ */
 
 .hivechat-messages::-webkit-scrollbar,
