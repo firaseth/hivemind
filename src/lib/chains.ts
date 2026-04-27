@@ -94,7 +94,7 @@ export const createAgentChain = (
   model: DEFAULT_MODEL,
   baseUrl: DEFAULT_BASE_URL,
   keepAlive: "10m",
-  numCtx: 1024,
+  numCtx: 1012,
 });
 
   const promptTemplate = new PromptTemplate({
@@ -157,7 +157,7 @@ export const runConsensusVote = async (
   model: DEFAULT_MODEL,
   baseUrl: DEFAULT_BASE_URL,
   keepAlive: "10m",
-  numCtx: 1024,
+  numCtx: 1012,
 });
 
   const consensusPrompt = new PromptTemplate({
