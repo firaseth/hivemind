@@ -1,3 +1,4 @@
+
 import { Ollama } from "@langchain/ollama";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
@@ -91,11 +92,9 @@ export const createAgentChain = (
   const persona = AGENT_PERSONAS[role];
 
   const llm = new Ollama({
-  model: DEFAULT_MODEL,
-  baseUrl: DEFAULT_BASE_URL,
-  keepAlive: "10m",
-  numCtx: 1012,
-});
+    model: DEFAULT_MODEL,
+    baseUrl: DEFAULT_BASE_URL,
+  });
 
   const promptTemplate = new PromptTemplate({
     template: `{systemPrompt}
@@ -154,11 +153,9 @@ export const runConsensusVote = async (
   reasoning: string;
 }> => {
   const llm = new Ollama({
-  model: DEFAULT_MODEL,
-  baseUrl: DEFAULT_BASE_URL,
-  keepAlive: "10m",
-  numCtx: 1012,
-});
+    model: DEFAULT_MODEL,
+    baseUrl: DEFAULT_BASE_URL,
+  });
 
   const consensusPrompt = new PromptTemplate({
     template: `You are a consensus facilitator reviewing swarm agent outputs.

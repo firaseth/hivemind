@@ -478,3 +478,22 @@
 .decision-replay-panel::-webkit-scrollbar-thumb:hover {
   background: var(--color-border-primary);
 }
+/* ⚡ Streaming cursor */
+.streaming-cursor {
+  display: inline-block;
+  margin-left: 4px;
+  animation: cursor-blink 0.7s infinite;
+  color: inherit;
+  font-weight: 400;
+}
+
+@keyframes cursor-blink {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0; }
+}
+
+.streaming-placeholder {
+  display: flex;
+  align-items: center;
+  min-height: 20px;
+}
