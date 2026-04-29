@@ -193,17 +193,47 @@ Format your response as JSON:
     criticOutput,
   });
 
-  try {
-    const parsed = JSON.parse(result);
-    return parsed;
-  } catch {
+  // Robust JSON extraction
+  const extractJson = (text: string) => {
+    try {
+      // 1. Try direct parse
+      return JSON.parse(text);
+    } catch {
+      try {
+        // 2. Try extracting from markdown block
+        const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        if (match && match[1]) return JSON.parse(match[1]);
+        
+        // 3. Try finding first { and last }
+        const start = text.indexOf('{');
+        const end = text.lastIndexOf('}');
+        if (start !== -1 && end !== -1) {
+          return JSON.parse(text.substring(start, end + 1));
+        }
+      } catch (e) {
+        console.error("[HiveMind] Failed to parse consensus JSON:", e);
+      }
+    }
+    return null;
+  };
+
+  const parsed = extractJson(result);
+
+  if (parsed) {
     return {
-      consensus: false,
-      agreementScore: 0,
-      recommendedAction: "Unable to reach consensus",
-      reasoning: result,
+      consensus: !!parsed.consensus,
+      agreementScore: Number(parsed.agreementScore) || 0,
+      recommendedAction: parsed.recommendedAction || "Proceed with caution",
+      reasoning: parsed.reasoning || "Automated consensus reached",
     };
   }
+
+  return {
+    consensus: false,
+    agreementScore: 0,
+    recommendedAction: "Unable to reach consensus",
+    reasoning: result,
+  };
 };
 
 // ============================================================================

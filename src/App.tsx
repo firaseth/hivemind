@@ -2,9 +2,9 @@ import { useEffect } from 'react'
 import HiveChat from './components/screens/HiveChat'
 import { useSwarmStore } from './store/swarmStore'
 import { getOllamaStatus } from './lib/ollama'
+import { listen } from '@tauri-apps/api/event'
 import './App.css'
 
-// ── Nav item config ─────────────────────────────────────────────────────────
 const NAV_ITEMS = [
   { id: 'swarm',    icon: '🛰️', label: 'Swarm Control' },
   { id: 'memory',   icon: '🧠', label: 'Memory'        },
@@ -26,7 +26,6 @@ function App() {
     sessionHistory,
   } = useSwarmStore()
 
-  // Poll Ollama health on mount
   useEffect(() => {
     const probe = async () => {
       const status = await getOllamaStatus(ollamaStatus.baseUrl, selectedModel)
@@ -37,175 +36,108 @@ function App() {
     return () => clearInterval(interval)
   }, [ollamaStatus.baseUrl, selectedModel, setOllamaStatus])
 
+  useEffect(() => {
+    let unlisteners: Array<() => void> = [];
+    const setup = async () => {
+      try {
+        unlisteners.push(await listen('agent_message', (e: any) => useSwarmStore.getState().addMessage(e.payload)));
+        unlisteners.push(await listen('agent_status', (e: any) => {
+          const { role, status } = e.payload;
+          useSwarmStore.getState().setAgentStatus(role, status);
+          if (status === 'working') useSwarmStore.getState().setActiveAgent(role);
+          else if (useSwarmStore.getState().activeAgent === role) useSwarmStore.getState().setActiveAgent(null);
+        }));
+        unlisteners.push(await listen('consensus_reached', () => {
+          useSwarmStore.getState().setConsensusReached(true);
+          useSwarmStore.getState().setIsRunning(false);
+        }));
+        unlisteners.push(await listen('agent_token', (e: any) => {
+          const { msgId, fullContent } = e.payload;
+          useSwarmStore.getState().updateMessage(msgId, { content: fullContent });
+        }));
+        unlisteners.push(await listen('agent_message_done', (e: any) => {
+          const { msgId, fullContent, confidence } = e.payload;
+          useSwarmStore.getState().updateMessage(msgId, { content: fullContent, confidence });
+        }));
+      } catch (err) { console.error(err); }
+    };
+    setup();
+    return () => unlisteners.forEach(u => u());
+  }, []);
+
   return (
     <main className="app-container">
-      {/* ── Sidebar ── */}
       <nav className="sidebar">
         <div className="sidebar-header">
-          <div className="logo">
-            <span className="logo-bee">🐝</span>
-            <span className="logo-text">HiveMind</span>
-          </div>
+          <div className="logo"><span className="logo-bee">🐝</span><span className="logo-text">HiveMind</span></div>
           <div className="version">v0.1.0 · local</div>
         </div>
-
         <div className="nav-items">
           {NAV_ITEMS.map(({ id, icon, label }) => (
-            <button
-              key={id}
-              id={`nav-${id}`}
-              className={`nav-item ${activeTab === id ? 'active' : ''}`}
-              onClick={() => setActiveTab(id as Tab)}
-            >
+            <button key={id} className={`nav-item ${activeTab === id ? 'active' : ''}`} onClick={() => setActiveTab(id as Tab)}>
               <span className="icon">{icon}</span>
               <span className="label">{label}</span>
-              {id === 'memory' && memoryEntries.length > 0 && (
-                <span className="nav-badge">{memoryEntries.length}</span>
-              )}
+              {id === 'memory' && memoryEntries.length > 0 && <span className="nav-badge">{memoryEntries.length}</span>}
             </button>
           ))}
         </div>
-
-        <div className="sidebar-footer">
+        <div className="sidebar-footer" style={{ borderTop: 'none', paddingBottom: '5px' }}>
           <div className="status-badge">
             <span className={`dot ${ollamaStatus.running ? 'online' : 'offline'}`} />
-            {ollamaStatus.running
-              ? `${ollamaStatus.models.length} model${ollamaStatus.models.length !== 1 ? 's' : ''} ready`
-              : 'Ollama offline'}
+            {ollamaStatus.running ? `${ollamaStatus.models.length} models ready` : 'Ollama offline'}
           </div>
+        </div>
+        <div className="creator-credit">
+          <span>Created by Engineer Firas</span>
         </div>
       </nav>
 
-      {/* ── Main content ── */}
       <section className="main-content">
         {activeTab === 'swarm' && <HiveChat />}
-
         {activeTab === 'memory' && (
-          <div className="page memory-page">
+          <div className="page" style={{ animation: 'message-in 0.4s var(--ease-out)' }}>
             <div className="page-header">
               <h1>Memory Store</h1>
-              <p className="page-subtitle">
-                {memoryEntries.length} entries · persisted across sessions
-              </p>
-              {memoryEntries.length > 0 && (
-                <button className="btn-ghost danger" onClick={clearMemory}>
-                  Clear all
-                </button>
-              )}
+              <p className="page-subtitle">{memoryEntries.length} entries preserved in the collective consciousness.</p>
             </div>
-
-            {memoryEntries.length === 0 ? (
-              <div className="empty-state">
-                <span className="empty-icon">🧠</span>
-                <p>No memory entries yet.</p>
-                <p className="empty-sub">Run a swarm session to populate memory.</p>
-              </div>
-            ) : (
-              <div className="memory-list">
-                {memoryEntries.map((entry) => (
-                  <div key={entry.id} className="memory-card">
+            <div className="memory-list" style={{ marginTop: '20px' }}>
+              {memoryEntries.length === 0 ? (
+                <div className="empty-state" style={{ marginTop: '100px' }}>
+                  <p>🧠</p>
+                  <p>The hive's memory is currently empty.</p>
+                </div>
+              ) : (
+                memoryEntries.map(entry => (
+                  <div key={entry.id} className="memory-card" style={{ marginBottom: '12px' }}>
                     <div className="memory-card-header">
-                      <span
-                        className="memory-role-badge"
-                        data-role={entry.agentRole}
-                      >
-                        {entry.agentRole}
-                      </span>
-                      <span className="memory-ts">
-                        {new Date(entry.timestamp).toLocaleString()}
-                      </span>
+                      <span className="memory-role-badge" data-role={entry.agentRole}>{entry.agentRole}</span>
+                      <span className="memory-ts">{new Date(entry.timestamp).toLocaleString()}</span>
                     </div>
                     <p className="memory-content">{entry.content}</p>
-                    {entry.tags.length > 0 && (
-                      <div className="memory-tags">
-                        {entry.tags.map((t) => (
-                          <span key={t} className="memory-tag">{t}</span>
-                        ))}
-                      </div>
-                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                ))
+              )}
+            </div>
           </div>
         )}
 
         {activeTab === 'settings' && (
-          <div className="page settings-page">
+          <div className="page" style={{ animation: 'message-in 0.4s var(--ease-out)' }}>
             <div className="page-header">
-              <h1>Settings</h1>
-              <p className="page-subtitle">Configure models, memory, and connections</p>
+              <h1>System Settings</h1>
+              <p className="page-subtitle">Configure the hive's intelligence and connectivity.</p>
             </div>
-
-            {/* Model config */}
-            <div className="settings-group">
+            <div className="settings-group" style={{ marginTop: '24px' }}>
               <h3>Model Configuration</h3>
               <div className="setting-row">
-                <label htmlFor="model-select">Active Model</label>
-                <select
-                  id="model-select"
-                  value={selectedModel}
-                  onChange={(e) => setSelectedModel(e.target.value)}
-                >
-                  {ollamaStatus.models.length > 0
-                    ? ollamaStatus.models.map((m) => (
-                        <option key={m.name} value={m.name}>{m.name}</option>
-                      ))
-                    : (
-                        <>
-                          <option value="gemma2:9b">gemma2:9b</option>
-                          <option value="llama3:8b">llama3:8b</option>
-                          <option value="mistral">mistral</option>
-                        </>
-                      )}
+                <label>Active Intelligence</label>
+                <select value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)}>
+                  {ollamaStatus.models.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
                 </select>
               </div>
               <div className="setting-row">
-                <label htmlFor="ollama-url">Ollama Base URL</label>
-                <input
-                  id="ollama-url"
-                  type="text"
-                  defaultValue={ollamaStatus.baseUrl}
-                  readOnly
-                />
-              </div>
-              <div className="setting-row">
-                <label>Connection Status</label>
-                <span className={`status-pill ${ollamaStatus.running ? 'success' : 'error'}`}>
-                  {ollamaStatus.running ? '● Connected' : '● Disconnected'}
-                </span>
-              </div>
-            </div>
-
-            {/* Memory config */}
-            <div className="settings-group">
-              <h3>Memory Persistence</h3>
-              <div className="setting-row">
-                <label>SQLite Database</label>
-                <code>hivemind_memory.db</code>
-              </div>
-              <div className="setting-row">
-                <label>Vector Store</label>
-                <code>ChromaDB (Local)</code>
-              </div>
-              <div className="setting-row">
-                <label>Cached Entries</label>
-                <span className="setting-value">{memoryEntries.length}</span>
-              </div>
-            </div>
-
-            {/* Session history */}
-            <div className="settings-group">
-              <h3>Session History</h3>
-              <div className="setting-row">
-                <label>Total Sessions</label>
-                <span className="setting-value">{sessionHistory.length}</span>
-              </div>
-              <div className="setting-row">
-                <label>Consensus Reached</label>
-                <span className="setting-value">
-                  {sessionHistory.filter((s) => s.consensusReached).length}
-                </span>
+                <label>Connection Endpoint</label>
+                <code>{ollamaStatus.baseUrl}</code>
               </div>
             </div>
           </div>
