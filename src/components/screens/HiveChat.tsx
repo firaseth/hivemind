@@ -138,13 +138,20 @@ export const HiveChat: React.FC = () => {
       {/* Input */}
       <form className="hivechat-input-form" onSubmit={handleLaunchSwarm}>
         <div className="input-wrapper">
-          <input 
-            type="text" 
+          <textarea 
             placeholder="What is the objective for the hive?" 
             value={goalInput} 
             onChange={e => setGoalInput(e.target.value)} 
+            onKeyDown={e => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleLaunchSwarm(e as any);
+              }
+            }}
             disabled={isRunning} 
-            className="goal-input" 
+            className="goal-input"
+            rows={1}
+            style={{ resize: 'none', minHeight: '24px', maxHeight: '200px' }}
           />
           <button type="submit" disabled={isRunning || !goalInput.trim()} className="launch-btn">
             {isRunning ? 'Analyzing...' : 'Launch Swarm →'}
