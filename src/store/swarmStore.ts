@@ -9,7 +9,7 @@ import type {
   SwarmSession,
   SessionLog,
 } from '../types/agent'
-// import { invoke } from '@tauri-apps/api/core'
+import { invoke } from '@tauri-apps/api/core'
 
 // ============================================================================
 // STATE SHAPE
