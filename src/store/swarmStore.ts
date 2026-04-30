@@ -298,7 +298,20 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
           if (!session) return;
           try {
             await invoke('approve_swarm_action', { sessionId: session.id, actionId });
-            set({ consensusReached: true });
+            
+            // Add a concluding system message
+            get().addMessage({
+              id: `system-${Date.now()}`,
+              agentRole: 'system',
+              content: '✅ Mission approved and executed. The hive has completed its task.',
+              timestamp: Date.now(),
+              type: 'output',
+              confidence: 100
+            });
+
+            // Mark session as done
+            get().endSession(true);
+            set({ consensusReached: false }); // Hide the gate
           } catch (err) {
             set({ error: String(err) });
           }
@@ -309,7 +322,17 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
           if (!session) return;
           try {
             await invoke('reject_swarm_action', { sessionId: session.id, actionId, reason });
-            set({ consensusReached: false });
+            
+            get().addMessage({
+              id: `system-${Date.now()}`,
+              agentRole: 'system',
+              content: `❌ Plan rejected. Reason: ${reason}`,
+              timestamp: Date.now(),
+              type: 'error',
+            });
+
+            get().endSession(false);
+            set({ consensusReached: false }); // Hide the gate
           } catch (err) {
             set({ error: String(err) });
           }
