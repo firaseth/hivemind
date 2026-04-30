@@ -195,16 +195,36 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
         endSession: (consensusReached) => {
           const { currentSession, messages } = get()
           if (!currentSession) return
+          const now = Date.now()
           const completed: SwarmSession = {
             ...currentSession,
             messages,
             consensusReached,
-            completedAt: Date.now(),
+            completedAt: now,
             goal: {
               ...currentSession.goal,
               status: consensusReached ? 'done' : 'failed',
             },
           }
+
+          // ── AUTO-ARCHIVE TO LONG-TERM MEMORY ──
+          if (consensusReached) {
+            const memoryEntry: MemoryEntry = {
+              id: `mem-goal-${now}`,
+              agentRole: 'memory' as AgentRole,
+              content: `Project Archive: "${currentSession.goal.text}" was successfully completed. The hive reached consensus on the implementation plan.`,
+              timestamp: now,
+              metadata: JSON.stringify({ sessionId: currentSession.id, type: 'goal_achievement' })
+            }
+            
+            // Add to local state
+            get().addMemoryEntry(memoryEntry)
+            
+            // Persist to SQLite backend
+            invoke('save_memory_entry', { entry: memoryEntry })
+              .catch(err => console.error('Failed to persist goal to SQLite memory:', err))
+          }
+
           set({
             currentSession: completed,
             isRunning: false,
