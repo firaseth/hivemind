@@ -174,7 +174,7 @@ async fn send_email(
         .map_err(|e| format!("Invalid SMTP host: {}", e))?
         .port(smtp_port)
         .credentials(creds)
-        .tls(Tls::Opportunistic(TlsParameters::new(smtp_host.clone())?)) // Use opportunistic TLS for STARTTLS support
+        .tls(Tls::Opportunistic(TlsParameters::new(smtp_host.clone()).map_err(|e| e.to_string())?)) // Use opportunistic TLS for STARTTLS support
         .build();
 
     match mailer.send(&email) {
