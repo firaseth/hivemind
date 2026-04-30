@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useSwarmStore } from '../../store/swarmStore';
 import SwarmGraph from '../ui/SwarmGraph';
-import { open } from '@tauri-apps/plugin-shell';
+import { openUrl } from '@tauri-apps/plugin-opener';
 import '../../styles/HiveChat.css';
 
 interface HiveChatProps {
@@ -42,15 +42,15 @@ export const HiveChat: React.FC<HiveChatProps> = () => {
     setGoalInput('');
   };
 
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(reportTitle)}&body=${encodeURIComponent(reportBody.substring(0, 1500) + (reportBody.length > 1500 ? '\n\n[TRUNCATED - PLEASE USE DOWNLOAD OPTION FOR FULL LOG]' : ''))}`;
+    const mailtoUrl = `mailto:?subject=${encodeURIComponent(reportTitle)}&body=${encodeURIComponent(reportBody.substring(0, 1500))}`;
     
     try {
-      await open(mailtoUrl);
+      await openUrl(mailtoUrl);
     } catch (err) {
       console.error('Failed to open mail client:', err);
       // Fallback: Copy to clipboard
       await navigator.clipboard.writeText(reportBody);
-      alert('Failed to open email client (likely due to character limits). The FULL report has been copied to your clipboard, and you can also use the Download button.');
+      alert('Your email client could not be opened automatically. The FULL report has been copied to your clipboard—you can now paste it directly into an email.');
     }
   };
 
