@@ -49,6 +49,7 @@ export interface SwarmStoreState {
   viewMode: 'chat' | 'graph'
   showDecisionLog: boolean
   language: string
+  recipientEmail: string
 }
 
 // ============================================================================
@@ -93,6 +94,7 @@ export interface SwarmStoreActions {
   setViewMode: (mode: 'chat' | 'graph') => void
   setShowDecisionLog: (show: boolean) => void
   setLanguage: (lang: string) => void
+  setRecipientEmail: (email: string) => void
 
   // Orchestration
   executeSwarmAction: (goal: string) => Promise<void>
@@ -142,6 +144,7 @@ const initialState: SwarmStoreState = {
   viewMode: 'chat',
   showDecisionLog: false,
   language: 'English',
+  recipientEmail: '',
 }
 
 // ============================================================================
@@ -256,6 +259,7 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
         setViewMode: (mode) => set({ viewMode: mode }),
         setShowDecisionLog: (show) => set({ showDecisionLog: show }),
         setLanguage: (lang) => set({ language: lang }),
+        setRecipientEmail: (email) => set({ recipientEmail: email }),
 
         // ── Orchestration ───────────────────────────────────────────
         executeSwarmAction: async (goal) => {
@@ -335,6 +339,7 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
           activeTab: s.activeTab,
           viewMode: s.viewMode,
           language: s.language,
+          recipientEmail: s.recipientEmail,
         }),
       }
     ),

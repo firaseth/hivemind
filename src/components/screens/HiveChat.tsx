@@ -42,7 +42,8 @@ export const HiveChat: React.FC<HiveChatProps> = () => {
     setGoalInput('');
   };
 
-    const mailtoUrl = `mailto:?subject=${encodeURIComponent(reportTitle)}&body=${encodeURIComponent(reportBody.substring(0, 1500))}`;
+    const { recipientEmail } = useSwarmStore.getState();
+    const mailtoUrl = `mailto:${recipientEmail}?subject=${encodeURIComponent(reportTitle)}&body=${encodeURIComponent(reportBody.substring(0, 1500))}`;
     
     try {
       await openUrl(mailtoUrl);

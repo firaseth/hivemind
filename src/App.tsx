@@ -139,6 +139,24 @@ function App() {
                 <label>Connection Endpoint</label>
                 <code>{ollamaStatus.baseUrl}</code>
               </div>
+              <div className="setting-row">
+                <label>Report Recipient Email</label>
+                <input 
+                  type="email" 
+                  placeholder="e.g. engineer.firas@example.com"
+                  value={useSwarmStore.getState().recipientEmail} 
+                  onChange={(e) => useSwarmStore.getState().setRecipientEmail(e.target.value)}
+                  style={{ 
+                    padding: '8px 12px', 
+                    borderRadius: '6px', 
+                    border: '0.5px solid var(--color-border-secondary)',
+                    background: 'var(--color-background-primary)',
+                    color: 'var(--color-text-primary)',
+                    width: '100%',
+                    maxWidth: '300px'
+                  }}
+                />
+              </div>
             </div>
           </div>
         )}
