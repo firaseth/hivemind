@@ -1,5 +1,5 @@
 import { runConsensusVote, brainRouter, logDecision, AGENT_PERSONAS } from "./chains";
-import { runAgentPrompt } from "./ollama";
+import { runAgentPrompt, runAgentPromptStreaming } from "./ollama";
 import type { AgentMessage, MemoryEntry } from "../types/agent";
 import { emit } from "@tauri-apps/api/event";
 
@@ -146,28 +146,38 @@ export const runAgentChain = async (
     : "No previous memory.";
 
  
-const userPrompt = `Goal: ${goal}\nLanguage: ${language}\n\nIMPORTANT: You MUST respond in ${language}. Be concise, max 3 sentences. End with [CONFIDENCE: X].`
+  const userPrompt = `Goal: ${goal}\nLanguage: ${language}\n\nIMPORTANT: You MUST respond in ${language}. Be concise, max 3 sentences. End with [CONFIDENCE: X].`
+  
+  const message: AgentMessage = {
+    id:        `msg-${Date.now()}-${agentRole}`,
+    agentRole: agentRole as any,
+    content:   "Thinking...",
+    timestamp: Date.now(),
+    type:      "thought",
+    confidence: 0,
+  };
+
+  try { if (sessionId) await emit("agent_message", message); } catch {}
+
   try {
-    const result = await runAgentPrompt(
+    let accumulatedContent = "";
+    const result = await runAgentPromptStreaming(
       persona.systemPrompt,
       userPrompt,
+      async (token) => {
+        accumulatedContent += token;
+        try { if (sessionId) await emit("agent_token", { msgId: message.id, fullContent: accumulatedContent }); } catch {}
+      },
+      async (fullContent) => {
+        const confidenceMatch = fullContent.match(/\[CONFIDENCE:\s*(\d+)\]/);
+        const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
+        try { if (sessionId) await emit("agent_message_done", { msgId: message.id, fullContent, confidence }); } catch {}
+      },
       { model: "qwen2.5:1.5b", temperature: 0.7 }
     );
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
-
-    const message: AgentMessage = {
-      id:        `msg-${Date.now()}-${agentRole}`,
-      agentRole: agentRole as any,
-      content:   result.content || `${persona.name} completed analysis.`,
-      timestamp: Date.now(),
-      type:      "thought",
-      confidence,
-    };
-
-    try { if (sessionId) await emit("agent_message", message); } catch {}
-    console.log(`[HiveMind] ${persona.name} responded (${result.durationMs}ms)`);
 
     return {
       output:    result.content,
@@ -204,26 +214,36 @@ export const runCriticReview = async (
 
   const criticGoal = `Review these agent outputs for the goal: "${goal}"\nLanguage: ${language}\n\nIMPORTANT: You MUST respond in ${language}.\n\n${outputs.map((o, i) => `Agent ${i + 1}:\n${o}`).join("\n\n")}\n\nScore quality (0-100) and provide recommendations. End with [CONFIDENCE: X].`;
 
+  const message: AgentMessage = {
+    id:        `msg-${Date.now()}-critic`,
+    agentRole: "critic",
+    content:   "Reviewing outputs...",
+    timestamp: Date.now(),
+    type:      "critique",
+    confidence: 0,
+  };
+
+  try { await emit("agent_message", message); } catch {}
+
   try {
-    const result = await runAgentPrompt(
+    let accumulatedContent = "";
+    const result = await runAgentPromptStreaming(
       persona.systemPrompt,
       criticGoal,
+      async (token) => {
+        accumulatedContent += token;
+        try { await emit("agent_token", { msgId: message.id, fullContent: accumulatedContent }); } catch {}
+      },
+      async (fullContent) => {
+        const confidenceMatch = fullContent.match(/\[CONFIDENCE:\s*(\d+)\]/);
+        const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
+        try { await emit("agent_message_done", { msgId: message.id, fullContent, confidence }); } catch {}
+      },
       { model: "qwen2.5:1.5b", temperature: 0.5 }
     );
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
-
-    const message: AgentMessage = {
-      id:        `msg-${Date.now()}-critic`,
-      agentRole: "critic",
-      content:   result.content || "Critic completed review.",
-      timestamp: Date.now(),
-      type:      "critique",
-      confidence,
-    };
-
-    try { await emit("agent_message", message); } catch {}
 
     return { output: result.content, confidence, reasoning: "Critic reviewed all outputs", messages: [message] };
 
