@@ -9,7 +9,7 @@ import type {
   SwarmSession,
   SessionLog,
 } from '../types/agent'
-import { invoke } from '@tauri-apps/api/core'
+// import { invoke } from '@tauri-apps/api/core'
 
 // ============================================================================
 // STATE SHAPE
@@ -22,55 +22,102 @@ export interface AgentState {
 }
 
 export interface SwarmStoreState {
+  // ── Active session ──────────────────────────────────────────────────
   currentSession: SwarmSession | null
   messages: AgentMessage[]
   isRunning: boolean
   consensusReached: boolean
   activeAgent: AgentRole | null
   error: string | null
+
+  // ── Agent status grid ───────────────────────────────────────────────
   agents: Record<AgentRole, AgentState>
+
+  // ── History ─────────────────────────────────────────────────────────
   sessionHistory: SwarmSession[]
   sessionLogs: SessionLog[]
+
+  // ── Memory ──────────────────────────────────────────────────────────
   memoryEntries: MemoryEntry[]
+
+  // ── Ollama ──────────────────────────────────────────────────────────
   ollamaStatus: OllamaStatus
   selectedModel: string
+
+  // ── UI preferences ──────────────────────────────────────────────────
   activeTab: 'swarm' | 'memory' | 'settings'
   viewMode: 'chat' | 'graph'
   showDecisionLog: boolean
+  language: string
 }
 
+// ============================================================================
+// ACTIONS
+// ============================================================================
+
 export interface SwarmStoreActions {
+  // Session
   startSession: (sessionId: string, goal: string) => void
   endSession: (consensusReached: boolean) => void
   setCurrentSession: (session: SwarmSession | null) => void
+
+  // Messages
   addMessage: (msg: AgentMessage) => void
   clearMessages: () => void
+
+  // Running state
   setIsRunning: (running: boolean) => void
   setConsensusReached: (reached: boolean) => void
   setError: (error: string | null) => void
+
+  // Agent status
   setAgentStatus: (role: AgentRole, status: AgentStatus, lastMessage?: string) => void
   setActiveAgent: (role: AgentRole | null) => void
+
+  // History & logs
   pushSessionToHistory: (session: SwarmSession) => void
   pushSessionLog: (log: SessionLog) => void
+
+  // Memory
   addMemoryEntry: (entry: MemoryEntry) => void
   setMemoryEntries: (entries: MemoryEntry[]) => void
   clearMemory: () => void
+
+  // Ollama
   setOllamaStatus: (status: OllamaStatus) => void
   setSelectedModel: (model: string) => void
+
+  // UI
   setActiveTab: (tab: 'swarm' | 'memory' | 'settings') => void
   setViewMode: (mode: 'chat' | 'graph') => void
   setShowDecisionLog: (show: boolean) => void
+  setLanguage: (lang: string) => void
+
+  // Orchestration
   executeSwarmAction: (goal: string) => Promise<void>
   approveAction: (actionId: string) => Promise<void>
   rejectAction: (actionId: string, reason: string) => Promise<void>
-  updateMessage: (id: string, updates: Partial<AgentMessage>) => void
+
+  // Reset
   resetSession: () => void
 }
 
-const AGENT_ROLES: AgentRole[] = ['planner', 'researcher', 'executor', 'critic', 'creator', 'memory']
+// ============================================================================
+// DEFAULT AGENT STATES
+// ============================================================================
+
+const AGENT_ROLES: AgentRole[] = [
+  'planner', 'researcher', 'executor', 'critic', 'creator', 'memory',
+]
 
 const defaultAgents = (): Record<AgentRole, AgentState> =>
-  Object.fromEntries(AGENT_ROLES.map((role) => [role, { role, status: 'idle' }])) as Record<AgentRole, AgentState>
+  Object.fromEntries(
+    AGENT_ROLES.map((role) => [role, { role, status: 'idle' }])
+  ) as Record<AgentRole, AgentState>
+
+// ============================================================================
+// INITIAL STATE
+// ============================================================================
 
 const initialState: SwarmStoreState = {
   currentSession: null,
@@ -93,7 +140,12 @@ const initialState: SwarmStoreState = {
   activeTab: 'swarm',
   viewMode: 'chat',
   showDecisionLog: false,
+  language: 'English',
 }
+
+// ============================================================================
+// STORE
+// ============================================================================
 
 export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
   devtools(
@@ -101,6 +153,7 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
       (set, get) => ({
         ...initialState,
 
+        // ── Session ─────────────────────────────────────────────────
         startSession: (sessionId, goal) => {
           const now = Date.now()
           set({
@@ -128,7 +181,10 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
             messages,
             consensusReached,
             completedAt: Date.now(),
-            goal: { ...currentSession.goal, status: consensusReached ? 'done' : 'failed' },
+            goal: {
+              ...currentSession.goal,
+              status: consensusReached ? 'done' : 'failed',
+            },
           }
           set({
             currentSession: completed,
@@ -141,40 +197,47 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
 
         setCurrentSession: (session) => set({ currentSession: session }),
 
+        // ── Messages ─────────────────────────────────────────────────
         addMessage: (msg) =>
           set((s) => {
-            const exists = s.messages.find((m) => m.id === msg.id)
-            if (exists) return s
+            if (s.messages.some((m) => m.id === msg.id)) return s
             return { messages: [...s.messages, msg] }
           }),
 
-        updateMessage: (id, updates) =>
-          set((s) => ({
-            messages: s.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
-          })),
-
         clearMessages: () => set({ messages: [] }),
 
+        // ── Running state ─────────────────────────────────────────────
         setIsRunning: (running) => set({ isRunning: running }),
         setConsensusReached: (reached) => set({ consensusReached: reached }),
         setError: (error) => set({ error }),
 
+        // ── Agent status ──────────────────────────────────────────────
         setAgentStatus: (role, status, lastMessage) =>
           set((s) => ({
-            agents: { ...s.agents, [role]: { role, status, lastMessage } },
+            agents: {
+              ...s.agents,
+              [role]: { role, status, lastMessage },
+            },
           })),
 
         setActiveAgent: (role) => set({ activeAgent: role }),
 
+        // ── History & logs ────────────────────────────────────────────
         pushSessionToHistory: (session) =>
           set((s) => ({ sessionHistory: [session, ...s.sessionHistory] })),
 
-        pushSessionLog: (log) => set((s) => ({ sessionLogs: [log, ...s.sessionLogs] })),
+        pushSessionLog: (log) =>
+          set((s) => ({ sessionLogs: [log, ...s.sessionLogs] })),
 
-        addMemoryEntry: (entry) => set((s) => ({ memoryEntries: [entry, ...s.memoryEntries] })),
+        // ── Memory ────────────────────────────────────────────────────
+        addMemoryEntry: (entry) =>
+          set((s) => ({ memoryEntries: [entry, ...s.memoryEntries] })),
+
         setMemoryEntries: (entries) => set({ memoryEntries: entries }),
+
         clearMemory: () => set({ memoryEntries: [] }),
 
+        // ── Ollama ────────────────────────────────────────────────────
         setOllamaStatus: (status) => set({ ollamaStatus: status }),
         setSelectedModel: (model) =>
           set((s) => ({
@@ -182,57 +245,80 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
             ollamaStatus: { ...s.ollamaStatus, selectedModel: model },
           })),
 
+        // ── UI ────────────────────────────────────────────────────────
         setActiveTab: (tab) => set({ activeTab: tab }),
         setViewMode: (mode) => set({ viewMode: mode }),
         setShowDecisionLog: (show) => set({ showDecisionLog: show }),
+        setLanguage: (lang) => set({ language: lang }),
 
+        // ── Orchestration ───────────────────────────────────────────
         executeSwarmAction: async (goal) => {
-          const sessionId = `swarm-${Date.now()}`
-          get().startSession(sessionId, goal)
+          const sessionId = `swarm-${Date.now()}`;
+          get().startSession(sessionId, goal);
+          
           try {
-            try { await invoke('execute_agent_swarm', { goal }) } catch {}
-            const { executeSwarm } = await import('../lib/orchestrator')
-            const result = await executeSwarm({ goal, userApprovalRequired: true })
-            set({ messages: result.messages, consensusReached: result.consensusReached, isRunning: false })
+            // Signal Tauri backend if needed
+            try { await invoke('execute_agent_swarm', { goal }); } catch {}
+
+            // Load orchestrator dynamically to keep boot-time lean
+            const { executeSwarm: runSwarmLogic } = await import('../lib/orchestrator');
+
+            const result = await runSwarmLogic({
+              goal,
+              language: get().language,
+              userApprovalRequired: true,
+            });
+
+            set({
+              messages: result.messages,
+              consensusReached: result.consensusReached,
+              isRunning: false,
+            });
           } catch (err) {
-            set({ error: err instanceof Error ? err.message : String(err), isRunning: false })
+            set({ 
+              error: err instanceof Error ? err.message : String(err),
+              isRunning: false 
+            });
           }
         },
 
         approveAction: async (actionId) => {
-          const session = get().currentSession
-          if (!session) return
+          const session = get().currentSession;
+          if (!session) return;
           try {
-            await invoke('approve_swarm_action', { sessionId: session.id, actionId })
-            set({ consensusReached: true })
+            await invoke('approve_swarm_action', { sessionId: session.id, actionId });
+            set({ consensusReached: true });
           } catch (err) {
-            set({ error: String(err) })
+            set({ error: String(err) });
           }
         },
 
         rejectAction: async (actionId, reason) => {
-          const session = get().currentSession
-          if (!session) return
+          const session = get().currentSession;
+          if (!session) return;
           try {
-            await invoke('reject_swarm_action', { sessionId: session.id, actionId, reason })
-            set({ consensusReached: false })
+            await invoke('reject_swarm_action', { sessionId: session.id, actionId, reason });
+            set({ consensusReached: false });
           } catch (err) {
-            set({ error: String(err) })
+            set({ error: String(err) });
           }
         },
 
-        resetSession: () => set({
-          currentSession: null,
-          messages: [],
-          isRunning: false,
-          consensusReached: false,
-          activeAgent: null,
-          error: null,
-          agents: defaultAgents(),
-        }),
+        // ── Reset ─────────────────────────────────────────────────────
+        resetSession: () =>
+          set({
+            currentSession: null,
+            messages: [],
+            isRunning: false,
+            consensusReached: false,
+            activeAgent: null,
+            error: null,
+            agents: defaultAgents(),
+          }),
       }),
       {
         name: 'hivemind-swarm-store-v2',
+        // Only persist history, memory, and user prefs — not running session state
         partialize: (s) => ({
           sessionHistory: s.sessionHistory,
           sessionLogs: s.sessionLogs,
@@ -241,9 +327,22 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
           ollamaStatus: s.ollamaStatus,
           activeTab: s.activeTab,
           viewMode: s.viewMode,
+          language: s.language,
         }),
       }
     ),
     { name: 'HiveMindSwarmStore' }
   )
 )
+
+// ============================================================================
+// SELECTORS
+// ============================================================================
+
+export const selectIsRunning = (s: SwarmStoreState) => s.isRunning
+export const selectMessages = (s: SwarmStoreState) => s.messages
+export const selectAgents = (s: SwarmStoreState) => s.agents
+export const selectCurrentSession = (s: SwarmStoreState) => s.currentSession
+export const selectMemoryEntries = (s: SwarmStoreState) => s.memoryEntries
+export const selectOllamaStatus = (s: SwarmStoreState) => s.ollamaStatus
+export const selectSessionHistory = (s: SwarmStoreState) => s.sessionHistory
