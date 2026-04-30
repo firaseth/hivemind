@@ -6,6 +6,7 @@ import { emit } from "@tauri-apps/api/event";
 export interface SwarmExecutionConfig {
   goal: string;
   language?: string;
+  model?: string;
   projectId?: string;
   memoryContext?: MemoryEntry[];
   userApprovalRequired?: boolean;
@@ -46,11 +47,11 @@ export const executeSwarm = async (
 
   const [plannerResult, researcherResult, creatorResult, executorResult, memoryResult] =
     await Promise.all([
-      runAgentChain("planner",    config.goal, config.language, config.memoryContext, sessionId),
-      runAgentChain("researcher", config.goal, config.language, config.memoryContext, sessionId),
-      runAgentChain("creator",    config.goal, config.language, config.memoryContext, sessionId),
-      runAgentChain("executor",   config.goal, config.language, config.memoryContext, sessionId),
-      runAgentChain("memory",     config.goal, config.language, config.memoryContext, sessionId),
+      runAgentChain("planner",    config.goal, config.language, config.model, config.memoryContext, sessionId),
+      runAgentChain("researcher", config.goal, config.language, config.model, config.memoryContext, sessionId),
+      runAgentChain("creator",    config.goal, config.language, config.model, config.memoryContext, sessionId),
+      runAgentChain("executor",   config.goal, config.language, config.model, config.memoryContext, sessionId),
+      runAgentChain("memory",     config.goal, config.language, config.model, config.memoryContext, sessionId),
     ]);
       
 
@@ -75,6 +76,7 @@ export const executeSwarm = async (
     config.goal,
     [plannerResult.output, researcherResult.output, creatorResult.output, executorResult.output],
     config.language,
+    config.model,
     config.memoryContext
   );
   await updateStatus("critic", "idle");
@@ -110,9 +112,9 @@ export const executeSwarm = async (
   } catch {}
 
   decisionLog.push(
-    logDecision(`Planned: ${plannerResult.output.substring(0, 50)}...`, "qwen2.5:1.5b", plannerResult.confidence, plannerResult.reasoning, [], "planner"),
-    logDecision(`Researched: ${researcherResult.output.substring(0, 50)}...`, "qwen2.5:1.5b", researcherResult.confidence, researcherResult.reasoning, [], "researcher"),
-    logDecision(`Reviewed: ${criticResult.output.substring(0, 50)}...`, "qwen2.5:1.5b", criticResult.confidence, criticResult.reasoning, [], "critic"),
+    logDecision(`Planned: ${plannerResult.output.substring(0, 50)}...`, config.model || "qwen2.5:1.5b", plannerResult.confidence, plannerResult.reasoning, [], "planner"),
+    logDecision(`Researched: ${researcherResult.output.substring(0, 50)}...`, config.model || "qwen2.5:1.5b", researcherResult.confidence, researcherResult.reasoning, [], "researcher"),
+    logDecision(`Reviewed: ${criticResult.output.substring(0, 50)}...`, config.model || "qwen2.5:1.5b", criticResult.confidence, criticResult.reasoning, [], "critic"),
   );
 
   return {
@@ -136,6 +138,7 @@ export const runAgentChain = async (
   agentRole: "planner" | "researcher" | "executor" | "creator" | "memory",
   goal: string,
   language: string = "English",
+  model?: string,
   memoryContext?: MemoryEntry[],
   sessionId?: string
 ): Promise<AgentChainResult> => {
@@ -173,7 +176,7 @@ export const runAgentChain = async (
         const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
         try { if (sessionId) await emit("agent_message_done", { msgId: message.id, fullContent, confidence }); } catch {}
       },
-      { model: "qwen2.5:1.5b", temperature: 0.7 }
+      { model: model || "qwen2.5:1.5b", temperature: 0.7 }
     );
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
@@ -208,6 +211,7 @@ export const runCriticReview = async (
   goal: string,
   outputs: string[],
   language: string = "English",
+  model?: string,
   memoryContext?: MemoryEntry[]
 ): Promise<AgentChainResult> => {
   const persona = AGENT_PERSONAS["critic"];
@@ -239,7 +243,7 @@ export const runCriticReview = async (
         const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
         try { await emit("agent_message_done", { msgId: message.id, fullContent, confidence }); } catch {}
       },
-      { model: "qwen2.5:1.5b", temperature: 0.5 }
+      { model: model || "qwen2.5:1.5b", temperature: 0.5 }
     );
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);

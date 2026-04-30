@@ -272,6 +272,7 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
             const result = await runSwarmLogic({
               goal,
               language: get().language,
+              model: get().selectedModel,
               userApprovalRequired: true,
             });
 
