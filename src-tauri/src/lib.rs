@@ -6,6 +6,7 @@ use std::sync::Mutex;
 use rusqlite::Connection;
 use memory::MemoryEntry;
 use lettre::{Message, SmtpTransport, Transport, transport::smtp::authentication::Credentials};
+use lettre::transport::smtp::client::Tls;
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
@@ -173,6 +174,7 @@ async fn send_email(
         .map_err(|e| format!("Invalid SMTP host: {}", e))?
         .port(smtp_port)
         .credentials(creds)
+        .tls(Tls::Opportunistic) // Use opportunistic TLS for STARTTLS support (Port 587)
         .build();
 
     match mailer.send(&email) {
