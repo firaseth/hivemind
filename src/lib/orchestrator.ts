@@ -182,6 +182,10 @@ export const runAgentChain = async (
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
 
+    // Update the message object with final content for the return value
+    message.content = result.content;
+    message.confidence = confidence;
+
     return {
       output:    result.content,
       confidence,
@@ -248,6 +252,10 @@ export const runCriticReview = async (
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
     const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
+
+    // Update message object
+    message.content = result.content;
+    message.confidence = confidence;
 
     return { output: result.content, confidence, reasoning: "Critic reviewed all outputs", messages: [message] };
 
