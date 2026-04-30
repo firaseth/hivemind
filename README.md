@@ -88,7 +88,18 @@ See [ARCHITECTURE.md](./ARCHITECTURE.md) for a deep-dive technical breakdown.
     npm install
     ```
 
-3.  **Pull the default model**:
+3.  **Pull recommended models**:
+    HiveMind performs best with specific local models. We recommend the following, ordered from fastest (lower resources) to highest reasoning performance:
+
+    | Model Name | Size | Profile | Best For |
+    | :--- | :--- | :--- | :--- |
+    | `qwen2.5:1.5b` | 1.5B | ⚡ Blazing Fast | Low-resource machines & quick drafting. |
+    | `llama3.2:3b` | 3B | 🏎️ Balanced | Low latency with good instruction following. |
+    | `phi3:3.8b` | 3.8B | 🏎️ Balanced | Very capable for logic-heavy tasks. |
+    | `mistral:7b` | 7B | 🛡️ Reliable | Solid performance for creative and coding tasks. |
+    | `llama3:8b` | 8B | 🏆 High Performance | Excellent all-rounder for complex swarms. |
+    | `gemma2:9b` | 9B | 🧠 Top-Tier | **Default Recommendation** for high-quality reasoning. |
+
     ```bash
     ollama pull gemma2:9b
     ```
