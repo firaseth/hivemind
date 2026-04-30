@@ -134,9 +134,8 @@ fn reject_swarm_action(session_id: String, action_id: String, reason: String) ->
 }
 
 #[tauri::command]
-fn get_decision_log(session_id: String, limit: Option<usize>) -> Result<Vec<serde_json::Value>, String> {
+fn get_decision_log(_session_id: String, _limit: Option<usize>) -> Result<Vec<serde_json::Value>, String> {
     // Return decision log for Decision Replay UI
-    let limit = limit.unwrap_or(10);
     Ok(vec![
         serde_json::json!({
             "action": "Analyzed goal for task breakdown",
