@@ -153,7 +153,7 @@ export const runAgentChain = async (
     agentRole: agentRole as any,
     content:   "Thinking...",
     timestamp: Date.now(),
-    type:      "thought",
+    type:      "output",
     confidence: 0,
   };
 
@@ -219,7 +219,7 @@ export const runCriticReview = async (
     agentRole: "critic",
     content:   "Reviewing outputs...",
     timestamp: Date.now(),
-    type:      "critique",
+    type:      "output",
     confidence: 0,
   };
 

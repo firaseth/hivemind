@@ -63,6 +63,7 @@ export interface SwarmStoreActions {
 
   // Messages
   addMessage: (msg: AgentMessage) => void
+  updateMessage: (id: string, updates: Partial<AgentMessage>) => void
   clearMessages: () => void
 
   // Running state
@@ -203,6 +204,11 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
             if (s.messages.some((m) => m.id === msg.id)) return s
             return { messages: [...s.messages, msg] }
           }),
+
+        updateMessage: (id, updates) =>
+          set((s) => ({
+            messages: s.messages.map((m) => (m.id === id ? { ...m, ...updates } : m)),
+          })),
 
         clearMessages: () => set({ messages: [] }),
 
