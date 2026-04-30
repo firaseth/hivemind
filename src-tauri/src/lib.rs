@@ -5,6 +5,7 @@ use std::process::{Child, Command};
 use std::sync::Mutex;
 use rusqlite::Connection;
 use memory::MemoryEntry;
+use lettre::{Message, SmtpTransport, Transport, transport::smtp::authentication::Credentials};
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 
@@ -150,6 +151,37 @@ fn get_decision_log(session_id: String, limit: Option<usize>) -> Result<Vec<serd
     ])
 }
 
+#[tauri::command]
+async fn send_email(
+    recipient: String, 
+    subject: String, 
+    body: String,
+    smtp_host: String,
+    smtp_port: u16,
+    smtp_user: String,
+    smtp_pass: String
+) -> Result<String, String> {
+    let email = Message::builder()
+        .from(smtp_user.parse().map_err(|e| format!("Invalid sender: {}", e))?)
+        .to(recipient.parse().map_err(|e| format!("Invalid recipient: {}", e))?)
+        .subject(subject)
+        .body(body)
+        .map_err(|e| format!("Failed to build email: {}", e))?;
+
+    let creds = Credentials::new(smtp_user, smtp_pass);
+
+    let mailer = SmtpTransport::relay(&smtp_host)
+        .map_err(|e| format!("Invalid SMTP host: {}", e))?
+        .port(smtp_port)
+        .credentials(creds)
+        .build();
+
+    match mailer.send(&email) {
+        Ok(_) => Ok("Email sent successfully".into()),
+        Err(e) => Err(format!("Could not send email: {}", e)),
+    }
+}
+
 // ============================================================================
 // STATE AND APP INITIALIZATION
 // ============================================================================
@@ -187,6 +219,7 @@ pub fn run() {
                 approve_swarm_action,
                 reject_swarm_action,
                 get_decision_log,
+                send_email,
             ],
         )
         .run(tauri::generate_context!())

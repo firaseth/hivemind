@@ -157,6 +157,64 @@ function App() {
                   }}
                 />
               </div>
+
+              <div style={{ margin: '24px 0', borderTop: '1px solid var(--color-border-secondary)', opacity: 0.3 }} />
+              
+              <h3>Background Email (Direct SMTP)</h3>
+              <p style={{ fontSize: '13px', color: 'var(--color-text-tertiary)', marginBottom: '16px' }}>
+                Enable this to send reports automatically in the background via SMTP (e.g. Gmail App Password).
+              </p>
+              
+              <div className="setting-row">
+                <label>Enable Direct Sending</label>
+                <input 
+                  type="checkbox" 
+                  checked={useSwarmStore.getState().smtpConfig.useDirect} 
+                  onChange={(e) => useSwarmStore.getState().setSmtpConfig({ useDirect: e.target.checked })}
+                />
+              </div>
+
+              {useSwarmStore.getState().smtpConfig.useDirect && (
+                <div style={{ display: 'grid', gap: '12px', marginTop: '16px', padding: '16px', background: 'rgba(255,255,255,0.03)', borderRadius: '12px' }}>
+                  <div className="setting-row">
+                    <label>SMTP Host</label>
+                    <input 
+                      type="text" 
+                      value={useSwarmStore.getState().smtpConfig.host} 
+                      onChange={(e) => useSwarmStore.getState().setSmtpConfig({ host: e.target.value })}
+                      style={{ padding: '6px 10px', borderRadius: '4px', background: '#111', border: '1px solid #333', color: '#fff' }}
+                    />
+                  </div>
+                  <div className="setting-row">
+                    <label>SMTP Port</label>
+                    <input 
+                      type="number" 
+                      value={useSwarmStore.getState().smtpConfig.port} 
+                      onChange={(e) => useSwarmStore.getState().setSmtpConfig({ port: parseInt(e.target.value) })}
+                      style={{ padding: '6px 10px', borderRadius: '4px', background: '#111', border: '1px solid #333', color: '#fff', maxWidth: '80px' }}
+                    />
+                  </div>
+                  <div className="setting-row">
+                    <label>SMTP User</label>
+                    <input 
+                      type="text" 
+                      value={useSwarmStore.getState().smtpConfig.user} 
+                      onChange={(e) => useSwarmStore.getState().setSmtpConfig({ user: e.target.value })}
+                      style={{ padding: '6px 10px', borderRadius: '4px', background: '#111', border: '1px solid #333', color: '#fff' }}
+                    />
+                  </div>
+                  <div className="setting-row">
+                    <label>SMTP Password</label>
+                    <input 
+                      type="password" 
+                      value={useSwarmStore.getState().smtpConfig.pass} 
+                      onChange={(e) => useSwarmStore.getState().setSmtpConfig({ pass: e.target.value })}
+                      style={{ padding: '6px 10px', borderRadius: '4px', background: '#111', border: '1px solid #333', color: '#fff' }}
+                      placeholder="App password"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}

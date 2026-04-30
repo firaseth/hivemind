@@ -50,6 +50,13 @@ export interface SwarmStoreState {
   showDecisionLog: boolean
   language: string
   recipientEmail: string
+  smtpConfig: {
+    host: string
+    port: number
+    user: string
+    pass: string
+    useDirect: boolean
+  }
 }
 
 // ============================================================================
@@ -95,6 +102,7 @@ export interface SwarmStoreActions {
   setShowDecisionLog: (show: boolean) => void
   setLanguage: (lang: string) => void
   setRecipientEmail: (email: string) => void
+  setSmtpConfig: (config: Partial<SwarmStoreState['smtpConfig']>) => void
 
   // Orchestration
   executeSwarmAction: (goal: string) => Promise<void>
@@ -145,6 +153,13 @@ const initialState: SwarmStoreState = {
   showDecisionLog: false,
   language: 'English',
   recipientEmail: import.meta.env.VITE_REPORTER_EMAIL || '',
+  smtpConfig: {
+    host: import.meta.env.VITE_SMTP_HOST || 'smtp.gmail.com',
+    port: parseInt(import.meta.env.VITE_SMTP_PORT || '587'),
+    user: import.meta.env.VITE_SMTP_USER || '',
+    pass: import.meta.env.VITE_SMTP_PASS || '',
+    useDirect: !!(import.meta.env.VITE_SMTP_USER && import.meta.env.VITE_SMTP_PASS && import.meta.env.VITE_SMTP_PASS !== 'your-app-password-here'),
+  },
 }
 
 // ============================================================================
@@ -260,6 +275,7 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
         setShowDecisionLog: (show) => set({ showDecisionLog: show }),
         setLanguage: (lang) => set({ language: lang }),
         setRecipientEmail: (email) => set({ recipientEmail: email }),
+        setSmtpConfig: (config) => set((s) => ({ smtpConfig: { ...s.smtpConfig, ...config } })),
 
         // ── Orchestration ───────────────────────────────────────────
         executeSwarmAction: async (goal) => {
@@ -363,6 +379,7 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
           viewMode: s.viewMode,
           language: s.language,
           recipientEmail: s.recipientEmail,
+          smtpConfig: s.smtpConfig,
         }),
       }
     ),
