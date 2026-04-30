@@ -144,7 +144,7 @@ const initialState: SwarmStoreState = {
   viewMode: 'chat',
   showDecisionLog: false,
   language: 'English',
-  recipientEmail: '',
+  recipientEmail: import.meta.env.VITE_REPORTER_EMAIL || '',
 }
 
 // ============================================================================
