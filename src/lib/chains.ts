@@ -1,11 +1,10 @@
-
-import { Ollama } from "@langchain/ollama";
 import { PromptTemplate } from "@langchain/core/prompts";
 import { StringOutputParser } from "@langchain/core/output_parsers";
 import type { AgentPersona, MemoryEntry } from "../types/agent";
+import { LLMProvider } from "../llm/provider";
+import { RunnableLambda } from "@langchain/core/runnables";
 
 const DEFAULT_MODEL = "qwen2.5:1.5b";
-const DEFAULT_BASE_URL = "http://127.0.0.1:11434";
 
 // ============================================================================
 // AGENT PERSONAS
@@ -87,14 +86,10 @@ export interface AgentChainOutput {
 }
 
 export const createAgentChain = (
-  role: "planner" | "researcher" | "executor" | "critic" | "creator" | "memory"
+  role: "planner" | "researcher" | "executor" | "critic" | "creator" | "memory",
+  provider: LLMProvider
 ) => {
   const persona = AGENT_PERSONAS[role];
-
-  const llm = new Ollama({
-    model: DEFAULT_MODEL,
-    baseUrl: DEFAULT_BASE_URL,
-  });
 
   const promptTemplate = new PromptTemplate({
     template: `{systemPrompt}
@@ -124,7 +119,12 @@ Respond with:
     ],
   });
 
-  const chain = promptTemplate.pipe(llm).pipe(new StringOutputParser());
+  const chain = promptTemplate.pipe(
+    RunnableLambda.from(async (input) => {
+      return await provider.generate(input.toString());
+    })
+  ).pipe(new StringOutputParser());
+
   return chain;
 };
 
@@ -132,31 +132,19 @@ Respond with:
 // SWARM CONSENSUS ENGINE
 // ============================================================================
 
-export interface ConsensusRequest {
-  goal: string;
-  plannerOutput: string;
-  researcherOutput: string;
-  creatorOutput: string;
-  criticOutput: string;
-}
-
 export const runConsensusVote = async (
   plannerOutput: string,
   researcherOutput: string,
   creatorOutput: string,
   executorOutput: string,
-  criticOutput: string
+  criticOutput: string,
+  provider: LLMProvider
 ): Promise<{
   consensus: boolean;
   agreementScore: number;
   recommendedAction: string;
   reasoning: string;
 }> => {
-  const llm = new Ollama({
-    model: DEFAULT_MODEL,
-    baseUrl: DEFAULT_BASE_URL,
-  });
-
   const consensusPrompt = new PromptTemplate({
     template: `You are a consensus facilitator reviewing swarm agent outputs.
 
@@ -183,7 +171,11 @@ Format your response as JSON:
     ],
   });
 
-  const chain = consensusPrompt.pipe(llm).pipe(new StringOutputParser());
+  const chain = consensusPrompt.pipe(
+    RunnableLambda.from(async (input) => {
+      return await provider.generate(input.toString());
+    })
+  ).pipe(new StringOutputParser());
 
   const result = await chain.invoke({
     plannerOutput,
@@ -193,18 +185,13 @@ Format your response as JSON:
     criticOutput,
   });
 
-  // Robust JSON extraction
   const extractJson = (text: string) => {
     try {
-      // 1. Try direct parse
       return JSON.parse(text);
     } catch {
       try {
-        // 2. Try extracting from markdown block
         const match = text.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
         if (match && match[1]) return JSON.parse(match[1]);
-        
-        // 3. Try finding first { and last }
         const start = text.indexOf('{');
         const end = text.lastIndexOf('}');
         if (start !== -1 && end !== -1) {

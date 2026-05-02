@@ -1,12 +1,26 @@
 import { runConsensusVote, brainRouter, logDecision, AGENT_PERSONAS } from "./chains";
-import { runAgentPrompt, runAgentPromptStreaming } from "./ollama";
+import { OllamaProvider } from "../llm/ollama";
+import { withRetry } from "./retry";
+import { getBreaker } from "./circuitBreaker";
+import { tracer } from "../observability/tracing";
+import { globalPluginRegistry } from "../plugins/registry";
 import type { AgentMessage, MemoryEntry } from "../types/agent";
-import { emit } from "@tauri-apps/api/event";
+import { emit as tauriEmit } from "@tauri-apps/api/event";
+
+// Safe emit for non-Tauri environments (like Node benchmarks or evals)
+const emit = async (event: string, payload: any) => {
+  if (typeof window !== 'undefined' && (window as any).__TAURI_INTERNALS__) {
+    try { await tauriEmit(event, payload); } catch (e) {}
+  } else {
+    // console.log(`[Bus] ${event}`, payload);
+  }
+};
 
 export interface SwarmExecutionConfig {
   goal: string;
   language?: string;
   model?: string;
+  agentModels?: Record<string, string>;
   projectId?: string;
   memoryContext?: MemoryEntry[];
   userApprovalRequired?: boolean;
@@ -24,7 +38,10 @@ export interface SwarmExecutionResult {
 export const executeSwarm = async (
   config: SwarmExecutionConfig
 ): Promise<SwarmExecutionResult> => {
-  const sessionId = `swarm-${Date.now()}-${Math.random().toString(36).substring(7)}`;
+  return tracer.startActiveSpan('executeSwarm', async (span) => {
+    try {
+      span.setAttribute('goal', config.goal);
+      const sessionId = `swarm-${Date.now()}-${Math.random().toString(36).substring(7)}`;
   const messages: AgentMessage[] = [];
   const decisionLog: any[] = [];
 
@@ -32,6 +49,8 @@ export const executeSwarm = async (
 
   const routerDecision = await brainRouter(config.goal, "high");
   console.log(`[HiveMind] Router: ${routerDecision.selectedModel}`);
+
+  const getModel = (role: string) => config.agentModels?.[role] || config.model || "qwen2.5:1.5b";
 
   const updateStatus = async (role: string, status: string) => {
     try { await emit("agent_status", { role, status, sessionId }); } catch {}
@@ -47,11 +66,11 @@ export const executeSwarm = async (
 
   const [plannerResult, researcherResult, creatorResult, executorResult, memoryResult] =
     await Promise.all([
-      runAgentChain("planner",    config.goal, config.language, config.model, config.memoryContext, sessionId),
-      runAgentChain("researcher", config.goal, config.language, config.model, config.memoryContext, sessionId),
-      runAgentChain("creator",    config.goal, config.language, config.model, config.memoryContext, sessionId),
-      runAgentChain("executor",   config.goal, config.language, config.model, config.memoryContext, sessionId),
-      runAgentChain("memory",     config.goal, config.language, config.model, config.memoryContext, sessionId),
+      runAgentChain("planner",    config.goal, config.language, getModel("planner"),    config.memoryContext, sessionId),
+      runAgentChain("researcher", config.goal, config.language, getModel("researcher"), config.memoryContext, sessionId),
+      runAgentChain("creator",    config.goal, config.language, getModel("creator"),    config.memoryContext, sessionId),
+      runAgentChain("executor",   config.goal, config.language, getModel("executor"),   config.memoryContext, sessionId),
+      runAgentChain("memory",     config.goal, config.language, getModel("memory"),     config.memoryContext, sessionId),
     ]);
       
 
@@ -76,7 +95,7 @@ export const executeSwarm = async (
     config.goal,
     [plannerResult.output, researcherResult.output, creatorResult.output, executorResult.output],
     config.language,
-    config.model,
+    getModel("critic"),
     config.memoryContext
   );
   await updateStatus("critic", "idle");
@@ -87,7 +106,8 @@ export const executeSwarm = async (
     researcherResult.output,
     creatorResult.output,
     executorResult.output,
-    criticResult.output
+    criticResult.output,
+    new OllamaProvider({ model: getModel("critic") })
   );
 
   console.log(`[HiveMind] Consensus: ${consensus.consensus} (${consensus.agreementScore}%)`);
@@ -112,19 +132,26 @@ export const executeSwarm = async (
   } catch {}
 
   decisionLog.push(
-    logDecision(`Planned: ${plannerResult.output.substring(0, 50)}...`, config.model || "qwen2.5:1.5b", plannerResult.confidence, plannerResult.reasoning, [], "planner"),
-    logDecision(`Researched: ${researcherResult.output.substring(0, 50)}...`, config.model || "qwen2.5:1.5b", researcherResult.confidence, researcherResult.reasoning, [], "researcher"),
-    logDecision(`Reviewed: ${criticResult.output.substring(0, 50)}...`, config.model || "qwen2.5:1.5b", criticResult.confidence, criticResult.reasoning, [], "critic"),
+    logDecision(`Planned: ${plannerResult.output.substring(0, 50)}...`, getModel("planner"), plannerResult.confidence, plannerResult.reasoning, [], "planner"),
+    logDecision(`Researched: ${researcherResult.output.substring(0, 50)}...`, getModel("researcher"), researcherResult.confidence, researcherResult.reasoning, [], "researcher"),
+    logDecision(`Reviewed: ${criticResult.output.substring(0, 50)}...`, getModel("critic"), criticResult.confidence, criticResult.reasoning, [], "critic"),
   );
 
-  return {
-    sessionId,
-    messages,
-    consensusReached: consensus.consensus,
-    approvalRequired: config.userApprovalRequired !== false,
-    recommendedAction: consensus.recommendedAction,
-    decisionLog,
-  };
+    return {
+      sessionId,
+      messages,
+      consensusReached: consensus.consensus,
+      approvalRequired: config.userApprovalRequired !== false,
+      recommendedAction: consensus.recommendedAction,
+      decisionLog,
+    };
+  } catch (error) {
+    span.recordException(error as Error);
+    throw error;
+  } finally {
+    span.end();
+  }
+  });
 };
 
 interface AgentChainResult {
@@ -164,19 +191,52 @@ export const runAgentChain = async (
 
   try {
     let accumulatedContent = "";
-    const result = await runAgentPromptStreaming(
-      persona.systemPrompt,
-      userPrompt,
-      async (token) => {
-        accumulatedContent += token;
-        try { if (sessionId) await emit("agent_token", { msgId: message.id, fullContent: accumulatedContent }); } catch {}
-      },
-      async (fullContent) => {
+    const breaker = getBreaker(agentRole);
+    const provider = new OllamaProvider({ model: model || "qwen2.5:1.5b" });
+
+    // --- Plugin Delegation ---
+    const plugin = globalPluginRegistry.getAllPlugins().find(p => p.id.includes(agentRole));
+    if (plugin && plugin.execute) {
+      const pluginResult = await breaker.execute(() => plugin.execute!(goal, provider));
+      message.content = pluginResult.content;
+      const confidenceMatch = pluginResult.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
+      message.confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 80;
+      if (sessionId) await emit("agent_message_done", { msgId: message.id, fullContent: message.content, confidence: message.confidence });
+      
+      return {
+        output:    message.content,
+        confidence: message.confidence,
+        reasoning: `Executed via plugin: ${plugin.name}`,
+        messages:  [message],
+      };
+    }
+    // -------------------------
+
+    const result = await breaker.execute(() => 
+      withRetry(async () => {
+        accumulatedContent = ""; // Reset for retries
+        let fullContent = "";
+        
+        // Formulate the full prompt with system instructions
+        const fullPrompt = `${persona.systemPrompt}\n\n${userPrompt}`;
+        
+        const stream = provider.generateStreaming(fullPrompt);
+        for await (const token of stream) {
+          accumulatedContent += token;
+          fullContent = accumulatedContent;
+          try { if (sessionId) await emit("agent_token", { msgId: message.id, fullContent: accumulatedContent }); } catch {}
+        }
+        
         const confidenceMatch = fullContent.match(/\[CONFIDENCE:\s*(\d+)\]/);
         const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
         try { if (sessionId) await emit("agent_message_done", { msgId: message.id, fullContent, confidence }); } catch {}
-      },
-      { model: model || "qwen2.5:1.5b", temperature: 0.7 }
+        
+        return { content: fullContent };
+      }, { 
+        maxRetries: 2, 
+        backoffMs: 800,
+        onRetry: (attempt, err) => console.warn(`[Retry] Attempt ${attempt} for ${agentRole}: ${err.message}`)
+      })
     );
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);
@@ -235,19 +295,33 @@ export const runCriticReview = async (
 
   try {
     let accumulatedContent = "";
-    const result = await runAgentPromptStreaming(
-      persona.systemPrompt,
-      criticGoal,
-      async (token) => {
-        accumulatedContent += token;
-        try { await emit("agent_token", { msgId: message.id, fullContent: accumulatedContent }); } catch {}
-      },
-      async (fullContent) => {
+    const breaker = getBreaker("critic");
+    const provider = new OllamaProvider({ model: model || "qwen2.5:1.5b" });
+
+    const result = await breaker.execute(() => 
+      withRetry(async () => {
+        accumulatedContent = ""; // Reset for retries
+        let fullContent = "";
+
+        const fullPrompt = `${persona.systemPrompt}\n\n${criticGoal}`;
+
+        const stream = provider.generateStreaming(fullPrompt);
+        for await (const token of stream) {
+          accumulatedContent += token;
+          fullContent = accumulatedContent;
+          try { await emit("agent_token", { msgId: message.id, fullContent: accumulatedContent }); } catch {}
+        }
+
         const confidenceMatch = fullContent.match(/\[CONFIDENCE:\s*(\d+)\]/);
         const confidence = confidenceMatch ? parseInt(confidenceMatch[1]) : 75;
         try { await emit("agent_message_done", { msgId: message.id, fullContent, confidence }); } catch {}
-      },
-      { model: model || "qwen2.5:1.5b", temperature: 0.5 }
+
+        return { content: fullContent };
+      }, { 
+        maxRetries: 2, 
+        backoffMs: 800,
+        onRetry: (attempt, err) => console.warn(`[Retry] Attempt ${attempt} for critic: ${err.message}`)
+      })
     );
 
     const confidenceMatch = result.content.match(/\[CONFIDENCE:\s*(\d+)\]/);

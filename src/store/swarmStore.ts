@@ -10,6 +10,9 @@ import type {
   SessionLog,
 } from '../types/agent'
 import { invoke } from '@tauri-apps/api/core'
+import { initializePlugins } from "../plugins"
+
+initializePlugins();
 
 // ============================================================================
 // STATE SHAPE
@@ -19,6 +22,15 @@ export interface AgentState {
   role: AgentRole
   status: AgentStatus
   lastMessage?: string
+}
+
+export interface AgentModelConfig {
+  planner: string;
+  researcher: string;
+  executor: string;
+  critic: string;
+  creator: string;
+  memory: string;
 }
 
 export interface SwarmStoreState {
@@ -50,13 +62,7 @@ export interface SwarmStoreState {
   showDecisionLog: boolean
   language: string
   recipientEmail: string
-  smtpConfig: {
-    host: string
-    port: number
-    user: string
-    pass: string
-    useDirect: boolean
-  }
+  agentModels: AgentModelConfig
 }
 
 // ============================================================================
@@ -102,12 +108,12 @@ export interface SwarmStoreActions {
   setShowDecisionLog: (show: boolean) => void
   setLanguage: (lang: string) => void
   setRecipientEmail: (email: string) => void
-  setSmtpConfig: (config: Partial<SwarmStoreState['smtpConfig']>) => void
 
   // Orchestration
   executeSwarmAction: (goal: string) => Promise<void>
   approveAction: (actionId: string) => Promise<void>
   rejectAction: (actionId: string, reason: string) => Promise<void>
+  setAgentModel: (role: keyof AgentModelConfig, model: string) => void
 
   // Reset
   resetSession: () => void
@@ -153,12 +159,13 @@ const initialState: SwarmStoreState = {
   showDecisionLog: false,
   language: 'English',
   recipientEmail: import.meta.env.VITE_REPORTER_EMAIL || '',
-  smtpConfig: {
-    host: import.meta.env.VITE_SMTP_HOST || 'smtp.gmail.com',
-    port: parseInt(import.meta.env.VITE_SMTP_PORT || '587'),
-    user: import.meta.env.VITE_SMTP_USER || '',
-    pass: import.meta.env.VITE_SMTP_PASS || '',
-    useDirect: !!(import.meta.env.VITE_SMTP_USER && import.meta.env.VITE_SMTP_PASS && import.meta.env.VITE_SMTP_PASS !== 'your-app-password-here'),
+  agentModels: {
+    planner: 'qwen2.5:1.5b',
+    researcher: 'qwen2.5:1.5b',
+    executor: 'qwen2.5:1.5b',
+    critic: 'qwen2.5:1.5b',
+    creator: 'qwen2.5:1.5b',
+    memory: 'qwen2.5:1.5b',
   },
 }
 
@@ -295,7 +302,6 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
         setShowDecisionLog: (show) => set({ showDecisionLog: show }),
         setLanguage: (lang) => set({ language: lang }),
         setRecipientEmail: (email) => set({ recipientEmail: email }),
-        setSmtpConfig: (config) => set((s) => ({ smtpConfig: { ...s.smtpConfig, ...config } })),
 
         // ── Orchestration ───────────────────────────────────────────
         executeSwarmAction: async (goal) => {
@@ -313,6 +319,7 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
               goal,
               language: get().language,
               model: get().selectedModel,
+              agentModels: get().agentModels,
               userApprovalRequired: true,
             });
 
@@ -374,6 +381,11 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
           }
         },
 
+        setAgentModel: (role, model) =>
+          set((s) => ({
+            agentModels: { ...s.agentModels, [role]: model },
+          })),
+
         // ── Reset ─────────────────────────────────────────────────────
         resetSession: () =>
           set({
@@ -399,7 +411,7 @@ export const useSwarmStore = create<SwarmStoreState & SwarmStoreActions>()(
           viewMode: s.viewMode,
           language: s.language,
           recipientEmail: s.recipientEmail,
-          smtpConfig: s.smtpConfig,
+          agentModels: s.agentModels,
         }),
       }
     ),
